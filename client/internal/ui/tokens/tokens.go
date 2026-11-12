@@ -302,7 +302,9 @@ func Blend(base, over ui.Color) ui.Color { return over.Over(base) }
 // Apply writes the palette into a copy of a MyGo theme. base is the theme of
 // the current frame, which already follows the system (radius, font size and
 // platform metrics), so the tokens only override what the design decides.
-func (p Palette) Apply(base *ui.Theme, compact bool) *ui.Theme {
+// corners is the desktop's corner preference, which the built-in controls
+// follow the same way the hand-drawn elements do.
+func (p Palette) Apply(base *ui.Theme, compact bool, corners Corners) *ui.Theme {
 	t := *base
 	t.Dark = p.Dark
 	t.Background = p.Canvas
@@ -325,7 +327,7 @@ func (p Palette) Apply(base *ui.Theme, compact bool) *ui.Theme {
 	t.Focus = p.Focus
 	t.Scrollbar = p.Scrollbar
 	t.ScrollbarWidth = 8
-	t.Radius = RadiusSM
+	t.Radius = corners.Radius(RadiusSM)
 	t.Spacing = 4
 	if compact {
 		t.Spacing = 3

@@ -19,7 +19,7 @@ func MatchDialog(c *ui.Context, d Design, s *model.State) {
 	}
 	open := &match.Open
 	d.Overlay(c, open, func() {
-		panel := ui.Column(c).Width(620).MaxHeight(600).Radius(tokens.RadiusXL).
+		panel := ui.Column(c).Width(620).MaxHeight(600).Radius(d.Radius(tokens.RadiusXL)).
 			Material(d.RegularGlass()).Border(1, d.P.Border).Padding(tokens.Space20).
 			Gap(tokens.Space12)
 		panel.Children(func() {
@@ -80,7 +80,7 @@ func MatchDialog(c *ui.Context, d Design, s *model.State) {
 							for i, candidate := range match.Candidates {
 								i, candidate := i, candidate
 								row := ui.Row(c).FillWidth().Padding(tokens.Space8, tokens.Space6).
-									Radius(tokens.RadiusSM).AlignItems(ui.Center).Gap(tokens.Space8)
+									Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).Gap(tokens.Space8)
 								if i == match.Selected {
 									row.Background(d.P.Selected)
 								} else if row.Hovered() {

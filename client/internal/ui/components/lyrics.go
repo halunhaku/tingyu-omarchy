@@ -79,7 +79,7 @@ func LyricsView(c *ui.Context, d Design, s *model.State) {
 		line := lyrics.Lines[row]
 		active := row == current
 		rowElement := ui.Row(c).FillWidth().Padding(tokens.Space12, tokens.Space10).
-			Radius(tokens.RadiusSM)
+			Radius(d.Radius(tokens.RadiusSM))
 		if active {
 			rowElement.Background(d.P.AccentSoft)
 		} else if rowElement.Hovered() {
@@ -122,7 +122,7 @@ func lyricsModeRow(c *ui.Context, d Design, s *model.State, lyrics model.Lyrics)
 		d.Text(c, tokens.Overline, "歌词显示").TextColor(d.P.TextTertiary)
 		ui.Spacer(c)
 		mode := s.LyricsMode()
-		segment := ui.Segmented(c, &mode, "逐行", "逐字").Radius(tokens.RadiusSM).FontSize(11)
+		segment := ui.Segmented(c, &mode, "逐行", "逐字").Radius(d.Radius(tokens.RadiusSM)).FontSize(11)
 		if segment.Changed() {
 			s.SetLyricsMode(mode)
 		}

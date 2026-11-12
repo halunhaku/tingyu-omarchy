@@ -17,7 +17,7 @@ func Palette(c *ui.Context, d Design, s *model.State) {
 	open := &p.Open
 	d.Overlay(c, open, func() {
 		panel := ui.Column(c).Width(tokens.SearchPaletteWide).MaxHeight(520).
-			Radius(tokens.RadiusXL).Material(d.RegularGlass()).Border(1, d.P.Border).
+			Radius(d.Radius(tokens.RadiusXL)).Material(d.RegularGlass()).Border(1, d.P.Border).
 			Padding(tokens.Space12).Gap(tokens.Space8)
 		panel.Children(func() {
 			d.SearchBox(c, &p.Input, "命令面板", "搜索歌曲、专辑、艺术家，或输入命令", true,
@@ -59,7 +59,7 @@ func Palette(c *ui.Context, d Design, s *model.State) {
 						}
 						index := i
 						row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space10).
-							Padding(tokens.Space10, tokens.Space8).Radius(tokens.RadiusSM)
+							Padding(tokens.Space10, tokens.Space8).Radius(d.Radius(tokens.RadiusSM))
 						if index == p.Selected {
 							row.Background(d.P.Selected)
 						} else if row.Hovered() {
@@ -76,7 +76,7 @@ func Palette(c *ui.Context, d Design, s *model.State) {
 							case model.PaletteAlbum:
 								CoverFor(c, d, s, item.Album.Cover, 28)
 							default:
-								ui.Box(c).Size(28, 28).Radius(tokens.RadiusSM).
+								ui.Box(c).Size(28, 28).Radius(d.Radius(tokens.RadiusSM)).
 									Background(d.P.SurfaceSunken).Center().Children(func() {
 									icon := IconSearch
 									if item.Kind == model.PaletteCommand {

@@ -7,22 +7,36 @@ import (
 	"github.com/halunhaku/tingyu/client/internal/ui/tokens"
 )
 
-// Design is the resolved token set of the frame: palette and density. Pages
-// and components take it as a value; it changes only with the settings.
+// Design is the resolved token set of the frame: palette, density and the
+// desktop's corners. Pages and components take it as a value; it changes only
+// with the settings and the desktop's theme.
 type Design struct {
 	P       tokens.Palette
 	Compact bool
+	// Corners is the desktop's corner preference; its zero value keeps the
+	// design's radii, so a frame built without one still looks designed.
+	Corners tokens.Corners
 }
 
-// Resolve applies the settings to the frame's theme and returns the design.
-// The theme a window gets follows the system; applying the palette here keeps
-// built-in controls and hand-drawn elements in one appearance.
-func Resolve(c *ui.Context, dark, compact bool) Design {
+// Resolve applies the settings and the desktop's theme to the frame's theme and
+// returns the design. The theme a window gets follows the system; applying the
+// palette here keeps built-in controls and hand-drawn elements in one
+// appearance.
+func Resolve(c *ui.Context, dark, compact bool, desktop tokens.Desktop) Design {
 	base := *c.Theme()
 	palette := tokens.For(dark)
-	c.SetTheme(palette.Apply(&base, compact))
-	return Design{P: palette, Compact: compact}
+	if desktop.HasAccent {
+		palette = palette.Accented(desktop.Accent)
+	}
+	corners := desktop.Corners()
+	c.SetTheme(palette.Apply(&base, compact, corners))
+	return Design{P: palette, Compact: compact, Corners: corners}
 }
+
+// Radius is a design radius under the desktop's corners. Every hand-drawn
+// corner goes through here so the client squares them where the compositor
+// rounds nothing (Omarchy's `decoration:rounding 0`) and keeps 999 as a pill.
+func (d Design) Radius(r float32) float32 { return d.Corners.Radius(r) }
 
 // PagePadding is the inset of a page at this density.
 func (d Design) PagePadding() float32 {
@@ -73,18 +87,18 @@ func (d Design) Tertiary(c *ui.Context, s string) ui.Element {
 
 // Button is a secondary control: 32 high, radius 8, label 12/500 (§10-8).
 func (d Design) Button(c *ui.Context, label string) ui.Element {
-	return ui.Button(c, label).Height(tokens.ToolbarControl).Radius(tokens.RadiusSM).FontSize(12)
+	return ui.Button(c, label).Height(tokens.ToolbarControl).Radius(d.Radius(tokens.RadiusSM)).FontSize(12)
 }
 
 // PrimaryButton is the accent button of a toolbar (§10-8: 主按钮朱红).
 func (d Design) PrimaryButton(c *ui.Context, label string) ui.Element {
-	return ui.PrimaryButton(c, label).Height(tokens.ToolbarControl).Radius(tokens.RadiusSM).FontSize(12)
+	return ui.PrimaryButton(c, label).Height(tokens.ToolbarControl).Radius(d.Radius(tokens.RadiusSM)).FontSize(12)
 }
 
 // IconButton is a button showing only an icon, named for assistive technology.
 func (d Design) IconButton(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 	e := ui.Button(c, "").Size(tokens.ToolbarControl, tokens.ToolbarControl).Padding(6).
-		Radius(tokens.RadiusSM).Tooltip(label).Label(label)
+		Radius(d.Radius(tokens.RadiusSM)).Tooltip(label).Label(label)
 	e.Children(func() {
 		ui.Icon(c, icon).FontSize(tokens.IconNormal).TextColor(d.P.TextSecondary)
 	})
@@ -107,7 +121,7 @@ func (d Design) SearchBox(c *ui.Context, query *string, label, hint string, auto
 // SearchBoxWidth is SearchBox with an explicit width (0 keeps the layout's).
 func (d Design) SearchBoxWidth(c *ui.Context, query *string, label, hint string, width float32, autoFocus bool, onChange, onSubmit func(), onKey func(ui.TextKey) bool) ui.Element {
 	row := ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space6).Height(tokens.ToolbarControl).
-		PaddingX(tokens.Space8).Radius(tokens.RadiusSM).Border(1, d.P.Border).
+		PaddingX(tokens.Space8).Radius(d.Radius(tokens.RadiusSM)).Border(1, d.P.Border).
 		Background(d.P.SurfaceRaised).Cursor(ui.CursorText)
 	if width > 0 {
 		row.Width(width)
@@ -148,12 +162,12 @@ func (d Design) Divider(c *ui.Context) ui.Element {
 // Card is the surface panel the design uses for grouped content.
 func (d Design) Card(c *ui.Context) ui.Element {
 	return ui.Column(c).Padding(tokens.Space20).Gap(tokens.Space12).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 }
 
 // Tag is a small count/label pill on the sunken surface.
 func (d Design) Tag(c *ui.Context, label string) ui.Element {
-	e := ui.Row(c).Padding(tokens.Space8, 3).Radius(tokens.RadiusFull).
+	e := ui.Row(c).Padding(tokens.Space8, 3).Radius(d.Radius(tokens.RadiusFull)).
 		Background(d.P.SurfaceSunken).AlignItems(ui.Center)
 	e.Children(func() {
 		tokens.Tabular(d.Text(c, tokens.NumSm, label)).TextColor(d.P.TextSecondary)
@@ -163,7 +177,7 @@ func (d Design) Tag(c *ui.Context, label string) ui.Element {
 
 // AccentTag is the playing/count pill in the accent soft tint.
 func (d Design) AccentTag(c *ui.Context, label string) ui.Element {
-	e := ui.Row(c).Padding(tokens.Space8, 3).Radius(tokens.RadiusFull).
+	e := ui.Row(c).Padding(tokens.Space8, 3).Radius(d.Radius(tokens.RadiusFull)).
 		Background(d.P.AccentSoft).AlignItems(ui.Center)
 	e.Children(func() {
 		tokens.Tabular(d.Text(c, tokens.NumSm, label)).TextColor(d.P.Accent)

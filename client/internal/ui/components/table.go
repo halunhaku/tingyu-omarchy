@@ -130,7 +130,7 @@ func TrackTable(c *ui.Context, d Design, opts TableOptions) {
 		current := state.Player().Track != nil && state.Player().Track.ID == rowTrack.ID
 		selected := list.Selected() == row
 		rowElement := ui.Row(c).FillWidth().Height(d.RowHeight()).
-			AlignItems(ui.Center).PaddingX(tokens.Space2).Radius(tokens.RadiusSM)
+			AlignItems(ui.Center).PaddingX(tokens.Space2).Radius(d.Radius(tokens.RadiusSM))
 		// Three states (§4.4/§10-5): hover is 5% ink, the chosen row is the
 		// raised surface with a border, and the playing row is the accent
 		// tint with an accent title and the little equalizer. The page behind
@@ -152,7 +152,7 @@ func TrackTable(c *ui.Context, d Design, opts TableOptions) {
 					return
 				}
 				p.FocusRing(ui.Rect{X: r.X + 2, Y: r.Y + 2, W: r.W - 4, H: r.H - 4},
-					[4]float32{tokens.RadiusXS, tokens.RadiusXS, tokens.RadiusXS, tokens.RadiusXS})
+					[4]float32{d.Radius(tokens.RadiusXS), d.Radius(tokens.RadiusXS), d.Radius(tokens.RadiusXS), d.Radius(tokens.RadiusXS)})
 			})
 		}
 		rowElement.OnClick(func() {
@@ -249,7 +249,7 @@ func TrackTable(c *ui.Context, d Design, opts TableOptions) {
 // (§10-5). A track without one keeps the column's space so rows do not jump.
 func tableCoverCell(c *ui.Context, d Design, state *model.State, track library.Track) {
 	if bitmap := state.CoverBitmap(track.CoverArtPath); bitmap != nil {
-		ui.Image(c, bitmap).Size(tokens.TableCover, tokens.TableCover).Fit(ui.Cover).Radius(tokens.RadiusXS)
+		ui.Image(c, bitmap).Size(tokens.TableCover, tokens.TableCover).Fit(ui.Cover).Radius(d.Radius(tokens.RadiusXS))
 	} else {
 		ui.Box(c).Size(tokens.TableCover, tokens.TableCover)
 	}
@@ -325,7 +325,7 @@ func favoriteCell(c *ui.Context, d Design, state *model.State, track library.Tra
 	}
 	cell := ui.Box(c).Width(width).Center()
 	cell.Children(func() {
-		button := ui.Button(c, "").Size(width, 28).Padding(2).Radius(tokens.RadiusXS).
+		button := ui.Button(c, "").Size(width, 28).Padding(2).Radius(d.Radius(tokens.RadiusXS)).
 			Label(label).Tooltip(label).Background(ui.Transparent).Border(0, ui.Transparent)
 		button.Children(func() {
 			ui.Icon(c, icon).FontSize(tokens.IconCompact).TextColor(color)
@@ -427,14 +427,14 @@ func AddToPlaylistButton(c *ui.Context, d Design, state *model.State, tracks []l
 				state.AddToPlaylist(playlist.ID, tracks)
 			}
 		}
-	}).Radius(tokens.RadiusSM).FontSize(12).Height(tokens.ToolbarControl)
+	}).Radius(d.Radius(tokens.RadiusSM)).FontSize(12).Height(tokens.ToolbarControl)
 }
 
 // TrackRow is the lighter row of the queue, album/artist details and search
 // results: cover, title, subtitle and duration, chosen with a click.
 func TrackRow(c *ui.Context, d Design, s *model.State, track library.Track, current bool, onClick func()) ui.Element {
 	row := ui.Row(c).FillWidth().Height(tokens.TableRowHeight).AlignItems(ui.Center).Gap(tokens.Space10).
-		Padding(tokens.Space8, tokens.Space6).Radius(tokens.RadiusSM)
+		Padding(tokens.Space8, tokens.Space6).Radius(d.Radius(tokens.RadiusSM))
 	if row.Hovered() {
 		row.Background(tokens.Blend(d.P.Canvas, d.P.Hover))
 	}

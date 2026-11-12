@@ -12,9 +12,9 @@ import (
 
 // AppMark uses the approved Sound Island brand glyph.
 func AppMark(c *ui.Context, d Design, size, iconSize float32) ui.Element {
-	radius := tokens.RadiusSM
+	radius := d.Radius(tokens.RadiusSM)
 	if size >= 40 {
-		radius = tokens.RadiusMD
+		radius = d.Radius(tokens.RadiusMD)
 	}
 	return ui.Box(c).Size(size, size).Radius(radius).Background(d.P.Accent).Center().Children(func() {
 		ui.Icon(c, IconBrand).FontSize(iconSize).TextColor(d.P.OnAccent)
@@ -29,7 +29,7 @@ func Header(c *ui.Context, d Design, title, subtitle string, back func(), action
 		Height(tokens.PageHeaderHeight).Children(func() {
 		if back != nil {
 			ui.Button(c, "").Size(tokens.ToolbarControl, tokens.ToolbarControl).Padding(6).
-				Radius(tokens.RadiusSM).Label("返回").Tooltip("返回").
+				Radius(d.Radius(tokens.RadiusSM)).Label("返回").Tooltip("返回").
 				OnClick(back).Children(func() {
 				ui.Icon(c, IconBack).FontSize(tokens.IconNormal)
 			})
@@ -51,7 +51,7 @@ func Header(c *ui.Context, d Design, title, subtitle string, back func(), action
 // tile, a 20/600 title, at most two lines of 13, and the page's main action.
 func Empty(c *ui.Context, d Design, icon *ui.SVG, title, text string, actions func()) {
 	ui.Column(c).Grow(1).Justify(ui.Center).AlignItems(ui.Center).Gap(tokens.Space12).Children(func() {
-		ui.Box(c).Size(tokens.EmptyIcon, tokens.EmptyIcon).Radius(tokens.RadiusLG).
+		ui.Box(c).Size(tokens.EmptyIcon, tokens.EmptyIcon).Radius(d.Radius(tokens.RadiusLG)).
 			Background(d.P.SurfaceSunken).Center().Children(func() {
 			ui.Icon(c, icon).FontSize(26).TextColor(d.P.TextTertiary)
 		})
@@ -79,12 +79,12 @@ func Notice(c *ui.Context, d Design, message string, dismiss func()) {
 		color = d.P.TextSecondary
 	}
 	e := ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Padding(tokens.Space12, tokens.Space8).
-		Radius(tokens.RadiusMD).Background(bg).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusMD)).Background(bg).Border(1, d.P.Border)
 	e.Children(func() {
 		ui.Icon(c, IconInfo).FontSize(tokens.IconCompact).TextColor(color)
 		ui.Text(c, message).FontSize(12).TextColor(color).Grow(1).Wrap()
 		if dismiss != nil {
-			ui.Button(c, "").Padding(4).Radius(tokens.RadiusXS).Label("关闭提示").OnClick(dismiss).
+			ui.Button(c, "").Padding(4).Radius(d.Radius(tokens.RadiusXS)).Label("关闭提示").OnClick(dismiss).
 				Children(func() {
 					ui.Icon(c, IconClose).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
 				})
@@ -164,7 +164,7 @@ func Skeleton(c *ui.Context, d Design, rows int, height float32) {
 			width := widths[i%len(widths)]
 			row := ui.Row(c).FillWidth().Height(height).AlignItems(ui.Center)
 			row.Children(func() {
-				bar := ui.Box(c).Height(8).WidthPercent(width * 100).Radius(tokens.RadiusXS).
+				bar := ui.Box(c).Height(8).WidthPercent(width * 100).Radius(d.Radius(tokens.RadiusXS)).
 					Background(d.P.SkeletonBase)
 				if !still {
 					shimmer(c, d, bar, i)
@@ -204,7 +204,7 @@ func shimmer(c *ui.Context, d Design, bar ui.Element, key int) {
 			{Color: clear, At: from},
 			{Color: lit, At: mid},
 			{Color: clear, At: to},
-		}}, tokens.RadiusXS)
+		}}, d.Radius(tokens.RadiusXS))
 	})
 }
 
@@ -248,7 +248,7 @@ func KeyHint(c *ui.Context, d Design, keys string) {
 	if keys == "" {
 		return
 	}
-	ui.Row(c).Padding(tokens.Space6, 2).Radius(tokens.RadiusXS).
+	ui.Row(c).Padding(tokens.Space6, 2).Radius(d.Radius(tokens.RadiusXS)).
 		Background(d.P.SurfaceSunken).Children(func() {
 		d.Text(c, tokens.Overline, keys).TextColor(d.P.TextTertiary)
 	})
@@ -285,7 +285,7 @@ func Count(c *ui.Context, d Design, n int, unit string) {
 // with a danger border, the reason, and up to two actions.
 func ErrorCard(c *ui.Context, d Design, title, message string, actions func()) {
 	ui.Column(c).Width(tokens.ErrorCard).Padding(tokens.Space20).Gap(tokens.Space12).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Danger).Children(func() {
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Danger).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
 			ui.Icon(c, IconInfo).FontSize(tokens.IconCompact).TextColor(d.P.Danger)
 			d.Text(c, tokens.H3, title).TextColor(d.P.Danger)
@@ -338,8 +338,8 @@ func ProgressBar(c *ui.Context, d Design, fraction float64) {
 	if fraction > 1 {
 		fraction = 1
 	}
-	ui.Box(c).Height(4).FillWidth().Radius(tokens.RadiusFull).Background(d.P.SurfaceSunken).Children(func() {
-		ui.Box(c).WidthPercent(float32(fraction * 100)).Height(4).Radius(tokens.RadiusFull).
+	ui.Box(c).Height(4).FillWidth().Radius(d.Radius(tokens.RadiusFull)).Background(d.P.SurfaceSunken).Children(func() {
+		ui.Box(c).WidthPercent(float32(fraction * 100)).Height(4).Radius(d.Radius(tokens.RadiusFull)).
 			Background(d.P.Accent)
 	})
 }
@@ -347,7 +347,7 @@ func ProgressBar(c *ui.Context, d Design, fraction float64) {
 // SourceRow is one source line in settings: name, kind and track count.
 func SourceRow(c *ui.Context, d Design, sourceName, kind string, tracks int64) {
 	ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space10).PaddingY(tokens.Space6).Children(func() {
-		ui.Box(c).Size(30, 30).Radius(tokens.RadiusSM).Background(d.P.SurfaceSunken).Center().Children(func() {
+		ui.Box(c).Size(30, 30).Radius(d.Radius(tokens.RadiusSM)).Background(d.P.SurfaceSunken).Center().Children(func() {
 			ui.Icon(c, IconFolder).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
 		})
 		ui.Column(c).Gap(2).Grow(1).Children(func() {

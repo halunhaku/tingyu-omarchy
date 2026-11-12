@@ -123,7 +123,7 @@ func RecentShelf(c *ui.Context, d components.Design, s *model.State) {
 			card := ui.Column(c).Width(tokens.CoverShelf).Gap(tokens.Space8).Focusable()
 			card.OnClick(func() { s.OpenAlbum(album) })
 			card.Children(func() {
-				cover := components.Cover(c, d, s, album.Cover, tokens.CoverShelf, tokens.RadiusMD)
+				cover := components.Cover(c, d, s, album.Cover, tokens.CoverShelf, d.Radius(tokens.RadiusMD))
 				// Hover lifts the shadow, never the cover (§4.4).
 				if card.Hovered() {
 					cover.Shadow(0, 10, 24, -6, ui.RGBA(20, 20, 20, 56))
@@ -199,7 +199,7 @@ func Favorites(c *ui.Context, d components.Design, s *model.State) {
 	view := s.FavoriteView()
 	actions := func() {
 		section := view
-		seg := ui.Segmented(c, &section, "歌曲", "专辑").Radius(tokens.RadiusSM).FontSize(13)
+		seg := ui.Segmented(c, &section, "歌曲", "专辑").Radius(d.Radius(tokens.RadiusSM)).FontSize(13)
 		if seg.Changed() {
 			s.SetFavoriteView(section)
 		}

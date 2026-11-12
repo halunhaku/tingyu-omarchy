@@ -20,7 +20,7 @@ func quarkFolderPicker(c *ui.Context, d components.Design, s *model.State) {
 	width, height := c.Size()
 	d.Overlay(c, &f.Open, func() {
 		ui.Column(c).Width(min(620, width-48)).Height(min(600, height-48)).Padding(tokens.Space20).Gap(tokens.Space12).
-			Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
+			Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
 			d.Text(c, tokens.H2, "选择音乐文件夹").TextColor(d.P.TextPrimary).Shrink(0)
 			ui.Column(c).Shrink(0).Children(func() { sourceField(c, d, "来源名称", "例如「夸克音乐」", &f.Name) })
 			d.Text(c, tokens.Small, "当前位置："+f.FolderPath()).TextColor(d.P.TextSecondary).SingleLine().Shrink(0)
@@ -41,7 +41,7 @@ func quarkFolderPicker(c *ui.Context, d components.Design, s *model.State) {
 					requestQuarkFolders(s)
 				}
 			})
-			ui.Scroll(c).Grow(1).MinHeight(80).FillWidth().Border(1, d.P.Border).Radius(tokens.RadiusSM).Children(func() {
+			ui.Scroll(c).Grow(1).MinHeight(80).FillWidth().Border(1, d.P.Border).Radius(d.Radius(tokens.RadiusSM)).Children(func() {
 				ui.Column(c).FillWidth().Padding(tokens.Space8).Gap(tokens.Space4).Children(func() {
 					if f.Busy {
 						d.Text(c, tokens.Small, "正在加载…").TextColor(d.P.TextSecondary)
@@ -57,7 +57,7 @@ func quarkFolderPicker(c *ui.Context, d components.Design, s *model.State) {
 					}
 					for _, folder := range f.Folders {
 						folder := folder
-						b := ui.Button(c, "").FillWidth().Height(36).Label("打开文件夹：" + folder.Name).Radius(tokens.RadiusSM)
+						b := ui.Button(c, "").FillWidth().Height(36).Label("打开文件夹：" + folder.Name).Radius(d.Radius(tokens.RadiusSM))
 						b.Children(func() {
 							ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
 								ui.Icon(c, components.IconFolder).FontSize(16).TextColor(d.P.Accent)

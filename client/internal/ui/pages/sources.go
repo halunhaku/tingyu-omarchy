@@ -24,7 +24,7 @@ func Sources(c *ui.Context, d components.Design, s *model.State) {
 		// "添加来源" is the page's main action (§4.3): accent, 32 high, its menu
 		// is where the three kinds start, and the plus is the icon of the still.
 		add := ui.Row(c).Height(tokens.ToolbarControl).PaddingX(tokens.Space12).
-			Gap(tokens.Space6).Radius(tokens.RadiusSM).AlignItems(ui.Center).
+			Gap(tokens.Space6).Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).
 			Background(d.P.Accent).Focusable()
 		add.Children(func() {
 			ui.Icon(c, components.IconPlus).FontSize(12).TextColor(d.P.OnAccent)
@@ -96,13 +96,13 @@ func Sources(c *ui.Context, d components.Design, s *model.State) {
 // status dot, then "上次同步 / 同步结果" and the actions row.
 func sourceCard(c *ui.Context, d components.Design, s *model.State, view *sourcesPage, source library.Source) {
 	card := ui.Column(c).FillWidth().Padding(tokens.Space20).Gap(tokens.Space20).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	card.Shadow(0, 8, 24, -12, ui.RGBA(20, 20, 20, 40))
 	label, detail := splitSyncStatus(source.SyncStatus)
 	message := s.SourceError(source.ID)
 	card.Children(func() {
 		ui.Row(c).FillWidth().Gap(tokens.Space12).AlignItems(ui.Center).Children(func() {
-			tile := ui.Box(c).Size(46, 46).Radius(tokens.RadiusMD).
+			tile := ui.Box(c).Size(46, 46).Radius(d.Radius(tokens.RadiusMD)).
 				Background(tokens.Blend(d.P.SurfaceRaised, d.P.AccentSoft)).Center()
 			tile.Children(func() {
 				ui.Icon(c, components.SourceIcon(source.Kind)).FontSize(22).TextColor(d.P.Accent)
@@ -155,7 +155,7 @@ func sourceCard(c *ui.Context, d components.Design, s *model.State, view *source
 			// The ••• menu keeps the destructive action out of the row, as
 			// §4.3's action row asks.
 			more := ui.Button(c, "").Size(tokens.ToolbarControl, tokens.ToolbarControl).Padding(6).
-				Radius(tokens.RadiusSM).Label("来源操作").Tooltip("更多操作").
+				Radius(d.Radius(tokens.RadiusSM)).Label("来源操作").Tooltip("更多操作").
 				Background(ui.Transparent).Border(0, ui.Transparent)
 			more.Children(func() {
 				ui.Icon(c, components.IconMore).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
@@ -371,7 +371,7 @@ func sourceForm(c *ui.Context, d components.Design, s *model.State) {
 		return
 	}
 	card := ui.Column(c).Gap(tokens.Space10).Padding(tokens.Space16, tokens.Space12).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	card.Children(func() {
 		title := "添加 WebDAV 来源"
 		if form.Kind == model.SourceKindQuark {

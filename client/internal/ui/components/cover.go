@@ -44,7 +44,7 @@ func CoverFill(c *ui.Context, d Design, s *model.State, name string, radius floa
 
 // CoverFor is Cover for a track.
 func CoverFor(c *ui.Context, d Design, s *model.State, name string, size float32) ui.Element {
-	return Cover(c, d, s, name, size, tokens.RadiusSM)
+	return Cover(c, d, s, name, size, d.Radius(tokens.RadiusSM))
 }
 
 // NowPlayingBars is the small accent equalizer drawn beside the current row.

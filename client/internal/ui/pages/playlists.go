@@ -72,20 +72,20 @@ func Playlists(c *ui.Context, d components.Design, s *model.State) {
 				for _, playlist := range playlists {
 					playlist := playlist
 					row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space12).
-						Padding(tokens.Space10, tokens.Space8).Radius(tokens.RadiusSM).Focusable()
+						Padding(tokens.Space10, tokens.Space8).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 					if row.Hovered() {
 						row.Background(d.P.Hover)
 					}
 					row.OnClick(func() { s.OpenPlaylist(playlist) })
 					row.Children(func() {
-						ui.Box(c).Size(44, 44).Radius(tokens.RadiusMD).Background(d.P.SurfaceSunken).Center().Children(func() {
+						ui.Box(c).Size(44, 44).Radius(d.Radius(tokens.RadiusMD)).Background(d.P.SurfaceSunken).Center().Children(func() {
 							ui.Icon(c, components.IconQueue).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
 						})
 						ui.Column(c).Gap(2).Grow(1).Children(func() {
 							d.Text(c, tokens.Body, playlist.Name).TextColor(d.P.TextPrimary).SingleLine()
 							d.Textf(c, tokens.Small, "%d 首", playlist.TrackCount).TextColor(d.P.TextSecondary)
 						})
-						menu := ui.Button(c, "").Width(28).Height(28).Padding(2).Radius(tokens.RadiusXS).
+						menu := ui.Button(c, "").Width(28).Height(28).Padding(2).Radius(d.Radius(tokens.RadiusXS)).
 							Label("歌单操作").Tooltip("歌单操作")
 						menu.Children(func() {
 							ui.Icon(c, components.IconMore).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
@@ -116,7 +116,7 @@ func playlistNameField(c *ui.Context, d components.Design, s *model.State, confi
 		return
 	}
 	ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Padding(tokens.Space12, tokens.Space10).
-		Radius(tokens.RadiusMD).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
+		Radius(d.Radius(tokens.RadiusMD)).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
 		d.Text(c, tokens.Small, s.PlaylistEditTitle()).TextColor(d.P.TextSecondary)
 		input := ui.TextInput(c, value).Placeholder("歌单名称").Label(s.PlaylistEditTitle()).Grow(1).AutoFocus()
 		input.OnTextKey(func(k ui.TextKey) bool {

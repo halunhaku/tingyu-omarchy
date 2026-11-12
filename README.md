@@ -4,7 +4,7 @@
 
 当前为开发预览版：构建、窗口、曲库、播放内核、MPRIS、Omarchy 主题跟随与本地安装都已在本机跑通，**出声证据、云盘与分发发布尚未验收**。
 
-![听屿 Omarchy 版首次启动的添加来源界面](docs/screenshots/omarchy/w0-onboarding.png)
+![听屿 Omarchy 版曲库界面：强调色与圆角跟随 Omarchy 桌面](docs/screenshots/omarchy/readme-library.png)
 
 ## 已跑通
 

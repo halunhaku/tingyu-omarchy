@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+
+	"github.com/halunhaku/tingyu/client/internal/mpv"
 )
 
 // fakeMediaControl records what the media session asked the player to do.
@@ -83,6 +85,52 @@ func TestNowPlayingCommandsFollowQueueAndDuration(t *testing.T) {
 	for _, test := range cases {
 		if got := nowPlayingCommands(test.bounds, test.duration); got != test.want {
 			t.Errorf("%s: commands = %#x, want %#x", test.name, uint32(got), uint32(test.want))
+		}
+	}
+}
+
+// TestSessionStateReportsTheEndAsStopped pins what MPRIS calls a finished
+// queue: a player that ran to the end is Stopped, not Paused. A one-track
+// queue with repeat off reported Paused at the last position forever before.
+func TestSessionStateReportsTheEndAsStopped(t *testing.T) {
+	cases := []struct {
+		name     string
+		snapshot mpv.Snapshot
+		want     mygo.PlaybackState
+	}{
+		{"playing", mpv.Snapshot{Playing: true, Processing: mpv.Ready}, mygo.PlaybackPlaying},
+		{"paused", mpv.Snapshot{Processing: mpv.Ready, Position: 5 * time.Second}, mygo.PlaybackPaused},
+		{"loading", mpv.Snapshot{Processing: mpv.Loading}, mygo.PlaybackPaused},
+		{"completed", mpv.Snapshot{Processing: mpv.Completed, Position: 14 * time.Second}, mygo.PlaybackStopped},
+		{"at the last frame", mpv.Snapshot{Playing: true, Processing: mpv.Completed}, mygo.PlaybackPlaying},
+	}
+	for _, test := range cases {
+		if got := sessionState(test.snapshot); got != test.want {
+			t.Errorf("%s: state = %d, want %d", test.name, got, test.want)
+		}
+	}
+}
+
+// TestSessionPositionStartsANewTrackAtZero pins the position Now Playing
+// publishes: a track change resets it (mpv still reports the old file's time
+// for a moment), and no position is ever past the track's length.
+func TestSessionPositionStartsANewTrackAtZero(t *testing.T) {
+	cases := []struct {
+		name         string
+		snapshot     mpv.Snapshot
+		duration     time.Duration
+		trackChanged bool
+		want         time.Duration
+	}{
+		{"new track", mpv.Snapshot{Position: 12 * time.Second}, 7 * time.Second, true, 0},
+		{"same track keeps the position", mpv.Snapshot{Position: 5 * time.Second}, 7 * time.Second, false, 5 * time.Second},
+		{"past the length", mpv.Snapshot{Position: 12 * time.Second}, 7 * time.Second, false, 7 * time.Second},
+		{"unknown length", mpv.Snapshot{Position: 5 * time.Second}, 0, false, 5 * time.Second},
+		{"negative", mpv.Snapshot{Position: -time.Second}, 7 * time.Second, false, 0},
+	}
+	for _, test := range cases {
+		if got := sessionPosition(test.snapshot, test.duration, test.trackChanged); got != test.want {
+			t.Errorf("%s: position = %v, want %v", test.name, got, test.want)
 		}
 	}
 }

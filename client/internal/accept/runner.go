@@ -51,7 +51,7 @@ func Run(opts Options) (*Report, error) {
 	}
 	report := &Report{StartedAt: time.Now(), MediaDir: opts.MediaDir}
 	major, minor := clientAPI(opts.Lib)
-	report.Host = hostInfo(mpv.LibraryPath(), fmt.Sprintf("%d.%d", major, minor), "coreaudio")
+	report.Host = hostInfo(mpv.LibraryPath(), fmt.Sprintf("%d.%d", major, minor))
 	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {
 		return nil, err
 	}

@@ -38,20 +38,33 @@ func openLibrary(path string) (uintptr, error) {
 	return purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 }
 
-// LibraryPath resolves libmpv: MPV_LIB, then the app bundle's
+// ResolveLibrary resolves libmpv: MPV_LIB, then the app bundle's
 // Contents/Frameworks, then (development only) the media_kit pub cache that
-// ships the same LGPL build the Flutter client distributes.
-func LibraryPath() string {
+// ships the same LGPL build the Flutter client distributes, then the
+// platform's system fallback (Linux: the libmpv SONAMEs, see
+// libpath_linux.go). The error explains what was tried when the fallback is
+// the only thing that failed; it is nil when MPV_LIB or a bundled copy won.
+func ResolveLibrary() (string, error) {
 	if path := os.Getenv("MPV_LIB"); path != "" {
-		return path
+		return path, nil
 	}
 	if exe, err := os.Executable(); err == nil {
 		bundled := filepath.Join(filepath.Dir(exe), "..", "Frameworks", "Mpv.framework", "Versions", "A", "Mpv")
 		if info, err := os.Stat(bundled); err == nil && !info.IsDir() {
-			return bundled
+			return bundled, nil
 		}
 	}
-	return devLibraryPath()
+	if path := devLibraryPath(); path != "" {
+		return path, nil
+	}
+	return systemLibraryPath()
+}
+
+// LibraryPath is ResolveLibrary for callers that only need the path to
+// display. An empty result means no libmpv was found.
+func LibraryPath() string {
+	path, _ := ResolveLibrary()
+	return path
 }
 
 // devLibraryPath finds the newest media_kit_libs_macos_audio in the pub cache.

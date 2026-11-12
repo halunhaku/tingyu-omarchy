@@ -103,3 +103,8 @@ func LibraryPath() string {
 	}
 	return ""
 }
+
+// ResolveLibrary is LibraryPath for the callers that want a reason too. The
+// Windows search order has no system fallback, so an empty path carries no
+// error and the caller keeps its existing message.
+func ResolveLibrary() (string, error) { return LibraryPath(), nil }

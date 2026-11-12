@@ -117,9 +117,16 @@ func Open(path string) (*Lib, error) {
 	if path == "" {
 		return nil, fmt.Errorf("mpv: no libmpv path (set MPV_LIB or place libmpv-2.dll next to the executable)")
 	}
-	resolved, err := validateLibrary(path)
-	if err != nil {
-		return nil, err
+	resolved := path
+	if !acceptSoname(path) {
+		// A bare SONAME (Linux system libmpv) is resolved by the dynamic
+		// loader, not by the filesystem; everything else must be an absolute
+		// path to a regular file.
+		var err error
+		resolved, err = validateLibrary(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	handle, err := openLibrary(resolved)
 	if err != nil {
@@ -184,8 +191,9 @@ func (l *Lib) Close() error {
 	return nil
 }
 
-// LibraryPath resolves libmpv: MPV_LIB first, then the platform's bundled or
-// development location (see library_darwin.go and library_windows.go).
+// LibraryPath and ResolveLibrary live in the platform files: library_unix.go
+// (macOS bundle, then the pub cache, then the Linux SONAMEs) and
+// library_windows.go.
 
 // ClientAPIVersion returns (major<<16)|minor.
 func (l *Lib) ClientAPIVersion() uint64 { return l.clientAPIVersion() }

@@ -270,6 +270,28 @@ playback: engine closed
 app: quit complete
 ```
 
+### 2.7 交叉验证：用 M2 验收 harness 的媒体
+
+按 `scripts/gen-m2-media.sh` 造出 `client/build/m2-media/formats`（9 种格式各 14 s 正弦波，无标签、无封面；`build/` 已在 `.gitignore`），用同一套应用自动化开关播第一首（`TINGYU_AUTO_SCAN_DIR=build/m2-media/formats`、`TINGYU_AUTO_PLAY_INDEX=0`、`TINGYU_AUTO_QUIT_MS=60000`）：
+
+```console
+$ playerctl -l
+tingyu.instance154274
+
+$ playerctl -p tingyu.instance154274 metadata
+tingyu mpris:trackid             '/org/mygo/track/1'
+tingyu xesam:title               tone
+tingyu xesam:artist              未知艺术家
+tingyu xesam:album               未知专辑
+tingyu mpris:length              14024852
+```
+
+没有标签/封面时标题取文件名、艺术家/专辑取默认值，`mpris:artUrl` 键整个不出现；长度取曲库的 14.024852 s（aac 编码器实际时长）。
+
+这组媒体还验出一个真实缺陷（§6.7）：`tone.aiff` / `tone.alac` / `tone.flac` / `tone.m4a` 的标题、艺术家、专辑、时长（都是 14.000000 s）完全相同，连续 `next` 时 `mpris:trackid` 一直是 `/org/mygo/track/2`，直到换成 14.0278 s 的 mp3 才变 `/3`。
+
+`TINGYU_AUTO_QUIT_MS=60000` 到点后应用自行退出（日志 `app: quit complete`），`playerctl -l` → `No players found`，与 §2.6 的关窗退出结果一致。
+
 ---
 
 ## 3. 播放结束（B 段，单曲队列 + `TINGYU_REPEAT=off`）
@@ -386,7 +408,7 @@ Omarchy 的真媒体键是另一条链（只读代码，未实测）：
 | 6.4 | 两个实例的短名相同 | `playerctl -l` 得到 `tingyu.instance136568`、`tingyu.instance136569`（唯一）；但 `playerctl -a metadata` 两行都以 `tingyu` 开头，`Identity` 也都是 `tingyu`。`-p tingyu` 能选到一个，`-p tingyu.instance<pid>` 才能精确选。应用没有单实例锁，同时开两份就会在桌面面板出现两个「听屿」 | 设计/打包（M5 单实例锁可解）；不是 `session.go` 能修的 |
 | 6.5 | 换曲时旧封面文件被立即删除 | 切到无封面曲目时 `/run/user/1000/tingyu/now-playing-*` 立刻消失；正在显示旧封面的客户端可能读到 404 | mygo |
 | 6.6 | `DesktopEntry` 取决于启动环境 | 从 Cindy 的 shell 启动时继承了 `GIO_LAUNCHED_DESKTOP_FILE=/home/halunhaku/.local/share/applications/com.xd.cindy.user.hb1f8e09b8c0be48f.desktop`，MPRIS 里就变成 `com.xd.cindy.user.hb1f8e09b8c0be48f`；`env -u GIO_LAUNCHED_DESKTOP_FILE` 启动时为 `tingyu`。装 `.desktop`（M5）后从启动器打开就是对的 | 环境；M5 一并闭环 |
-| 6.7 | 相同元数据的连续曲目共用 `mpris:trackid` | mygo 的 trackid 计数器只在标题/艺术家/专辑/时长变化时自增；两首四项完全相同的曲目会共用一个 id。**未构造该用例实测** | mygo；`session.go` 无法补 |
+| 6.7 | 相同元数据的连续曲目共用 `mpris:trackid` | **已实测**（§2.7）：harness 的 `tone.aiff`、`tone.alac`、`tone.flac`、`tone.m4a` 四项元数据完全相同，连续 `next` 时 `mpris:trackid` 一直是 `/org/mygo/track/2`（只有 14.0278 s 的 mp3 才变 `/3`）。MPRIS 规范里客户端用 trackid 判断「是否换了曲」，这类队列会被当成没换歌 | mygo 的计数器只在标题/艺术家/专辑/时长变化时自增；`NowPlayingInfo` 没有 track id 字段，`session.go` 无法补 |
 | 6.8 | 换曲瞬间 `PlaybackStatus` 短暂为 `Paused` | 新曲刚加载、mpv 还没开始播的那一帧，状态是 `Paused`（约 0–200 ms），随后 `Playing`。这是当时的真实状态，未再包装 | 设计选择，未改 |
 | 6.9 | 播完后的位置 | `Stopped` 时 MPRIS `Position` 仍是 13.746 s（与界面 0:14 一致），而 `playerctl position` 对 Stopped 播放器显示 0.000000。再按播放会从 0 开始 | 客户端显示差异，非不一致 |
 

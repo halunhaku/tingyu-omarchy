@@ -108,6 +108,7 @@ type sessionPublisher struct {
 	lastProcessing mpv.Processing
 	lastRate       float64
 	lastCommands   mygo.MediaCommand
+	lastPosition   time.Duration
 	lastPush       time.Time
 
 	// artPath is the cover the session last showed and artData its bytes. The
@@ -172,6 +173,39 @@ func mediaCommandName(command mygo.MediaCommand) string {
 	return fmt.Sprintf("MediaCommand(%#x)", uint32(command))
 }
 
+// sessionState is the playback state Now Playing shows. Playback that ran to
+// the end of its queue is Stopped, not Paused: the two are different states in
+// MPRIS and on the other two platforms, and a finished queue reports Paused
+// forever otherwise (measured with a one-track queue and repeat off).
+func sessionState(snapshot mpv.Snapshot) mygo.PlaybackState {
+	if snapshot.Playing {
+		return mygo.PlaybackPlaying
+	}
+	if snapshot.Processing == mpv.Completed {
+		return mygo.PlaybackStopped
+	}
+	return mygo.PlaybackPaused
+}
+
+// sessionPosition is the position to publish with the info. A track change
+// still carries the previous file's playback time for a moment (mpv reports
+// the old time until the new file loads), which would show a fresh track at
+// the old track's position — and past its length. A track that just started is
+// at zero, and no position is ever beyond the length.
+func sessionPosition(snapshot mpv.Snapshot, duration time.Duration, trackChanged bool) time.Duration {
+	position := snapshot.Position
+	if trackChanged {
+		position = 0
+	}
+	if position < 0 {
+		position = 0
+	}
+	if duration > 0 && position > duration {
+		position = duration
+	}
+	return position
+}
+
 // nowPlayingCommands is the command set the system's controls should offer:
 // play and pause always, seek when the track has a duration, and next and
 // previous when the queue has one. The framework strips seek when the info's
@@ -231,14 +265,12 @@ func (a *application) publishSession(update player.Update) {
 	}
 	artwork, artChanged := a.sessionArtwork(track)
 	commands := nowPlayingCommands(a.queueSize(update), duration)
-	state := mygo.PlaybackPaused
-	if update.Snapshot.Playing {
-		state = mygo.PlaybackPlaying
-	}
+	trackChanged := session.lastID != track.ID || session.lastIndex != update.Index
+	position := sessionPosition(update.Snapshot, duration, trackChanged)
+	state := sessionState(update.Snapshot)
 
 	metadataChanged := force ||
-		session.lastID != track.ID ||
-		session.lastIndex != update.Index ||
+		trackChanged ||
 		session.lastDuration != duration ||
 		session.lastCommands != commands ||
 		session.lastRate != update.Snapshot.Rate ||
@@ -255,7 +287,7 @@ func (a *application) publishSession(update player.Update) {
 			Album:    track.Album,
 			Artwork:  artwork,
 			Duration: duration,
-			Position: update.Snapshot.Position,
+			Position: position,
 			Rate:     update.Snapshot.Rate,
 			State:    state,
 			Commands: commands,
@@ -272,13 +304,18 @@ func (a *application) publishSession(update player.Update) {
 		session.lastCommands = commands
 	}
 
+	// Progress-only updates are throttled to 500 ms. A paused or finished
+	// player whose position cannot move needs none after the last one: the
+	// 500 ms push used to repeat the same state (and the same PropertiesChanged
+	// signal) for as long as the app stayed open.
 	now := time.Now()
-	if metadataChanged || semanticsChanged || now.Sub(session.lastPush) >= 500*time.Millisecond {
+	advanced := position != session.lastPosition
+	if metadataChanged || semanticsChanged || (advanced && now.Sub(session.lastPush) >= 500*time.Millisecond) {
 		if !metadataChanged {
-			mygo.NowPlaying.SetPlayback(state, update.Snapshot.Position)
+			mygo.NowPlaying.SetPlayback(state, position)
 		}
 		a.logf("session: state playing=%v rate=%.2f pos=%.3f dur=%.1f processing=%s",
-			update.Snapshot.Playing, update.Snapshot.Rate, update.Snapshot.Position.Seconds(), duration.Seconds(), update.Snapshot.Processing)
+			update.Snapshot.Playing, update.Snapshot.Rate, position.Seconds(), duration.Seconds(), update.Snapshot.Processing)
 		if metadataChanged || semanticsChanged {
 			if info, ok := mygo.NowPlaying.Info(); ok {
 				a.logf("session: state readback state=%d pos=%v duration=%v artworkPresent=%v",
@@ -288,6 +325,7 @@ func (a *application) publishSession(update player.Update) {
 		session.lastPlaying = update.Snapshot.Playing
 		session.lastProcessing = update.Snapshot.Processing
 		session.lastRate = update.Snapshot.Rate
+		session.lastPosition = position
 		session.lastPush = now
 	}
 	session.force.Store(false)

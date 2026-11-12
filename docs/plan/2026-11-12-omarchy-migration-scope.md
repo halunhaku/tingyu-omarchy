@@ -127,6 +127,29 @@
 
 ---
 
+## 3.1 内置验收 harness 的首次 Linux 运行
+
+`client/cmd/accept`（M2 验收）第一次在 Linux 上跑通，未改一行代码：
+
+```bash
+cd client
+./scripts/gen-m2-media.sh          # 214 个文件，16 MB，全在 git 忽略的 build/ 下
+CGO_ENABLED=0 go build -o build/accept ./cmd/accept
+./build/accept -media build/m2-media
+```
+
+| 结果 | 覆盖 |
+|---|---|
+| 24/25 通过 | 9 种格式各播 10 s + seek、远端 Range/鉴权/403 过期/断网/无 Content-Length、gapless 波形比对、queue-replace、loop off/all/one、倍速、音量、本地与远端 buffered |
+| **失败：`queue-200`** | 连播 200 首：`completed=true`、末位 index 199/199 正常，但观测到 **201** 次加载，计数与队列长度不符 |
+
+注意事项：
+- `scripts/run-m2-accept.sh` 是 macOS 专用（`install_name_tool`、`codesign`、`.app` bundle），Linux 上直接跑 `build/accept` 即可，libmpv 由 SONAME 自动发现。
+- `internal/accept/runner.go` 的 host 记录把音频后端写死成 `coreaudio`，Linux 上 report.json 的该字段是假数据，引用前必须先改。
+- 播放路径是 `vo=null` + `audio-display=no`，全仓没有 `hwdec` 选项：硬件解码在听屿里不参与，结论只能写"未参与"，不能写"可用"。
+
+---
+
 ## 4. 测试与门槛
 
 | 项 | 现状 |

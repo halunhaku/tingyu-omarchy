@@ -16,7 +16,7 @@
 | 播放内核 | 系统 libmpv 0.41 按 `libmpv.so.2` → `.1` → `.0` 自动加载，client API 2.5，不需要 `MPV_LIB` |
 | 播放验收 | 内置 harness 在 Linux 上 24/25：9 种格式 + seek、远端鉴权/Range/无长度流、gapless、loop、倍速、音量全过；`queue-200` 未过（见下） |
 | MPRIS | `playerctl` 可见可控：title/artist/album/`mpris:length`/封面都对，`play-pause`、`next`、`previous`、`position` 生效；播完为 `Stopped`，换曲位置归零 |
-| 桌面观感 | 跟随 Omarchy `accent` 与 `enabled` 的 Hyprland 圆角，主题切换 2 秒内生效；设置页有「跟随桌面主题」开关 |
+| 桌面观感 | 跟随 Omarchy 的 `accent` 与 Hyprland 的 `decoration:rounding`，主题切换 2 秒内生效；设置页有「跟随桌面主题」开关 |
 | 文件对话框 | 走 `xdg-desktop-portal`（进程内 GTK 选择器在 Hyprland 下会把确认按钮摆到屏幕外） |
 | 桌面集成 | 「显示所在文件夹」走 `FileManager1`，失败回退 `xdg-open`；一库一实例，第二次启动只是把窗口提到前台 |
 | 安装 | `./scripts/linux-install.sh` 装到 `~/.local/bin` + 应用启动器，无 root；`pkgbuild/PKGBUILD` 可 `makepkg` 出包 |

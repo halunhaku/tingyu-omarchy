@@ -29,7 +29,10 @@ cd tingyu-omarchy/client
 # 构建 build/tingyu
 ./scripts/linux-build.sh
 
-# 启动（会自动使用系统 libmpv）
+# 安装到用户目录，出现在应用启动器里（无 root）
+./scripts/linux-install.sh
+
+# 或者直接启动（会自动使用系统 libmpv）
 ./build/tingyu
 ```
 
@@ -37,10 +40,11 @@ cd tingyu-omarchy/client
 
 ## 已知限制
 
-- **窗口标识**：Wayland 的 app id 取二进制名（`tingyu`），`.desktop` 与图标尚未落地。
+- **窗口标识**：Wayland 的 app id 取二进制名（`tingyu`），`.desktop` 里用 `StartupWMClass=tingyu` 对齐。
+- **播放验证**：内置的 M2 验收 harness 在 Linux 上 24/25 通过，`queue-200` 未过（观测到 201 次加载，队列长度 200），原因在查。
 - **未验收**：真实出声、硬件解码、媒体键、MPRIS 控件、拖入目录、云盘登录、二维码登录。
 - **性能门槛**：`internal/shell` 的 10000 行滚动 p95 闸门（16.7 ms）在本机实测 16.7–17.6 ms，临界失败；`go test -short` 跳过它，默认 `go test ./...` 仍然执行。
-- **分发**：没有 PKGBUILD、`.desktop`、图标，也没有加入 Omarchy 的软件包源。
+- **分发**：已有 PKGBUILD、`.desktop` 与图标，尚未发布 tag 与 GitHub Release，也没有加入 Omarchy 的软件包源。
 
 ## 项目文档
 

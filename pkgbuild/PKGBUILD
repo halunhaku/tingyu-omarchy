@@ -1,0 +1,44 @@
+# Maintainer: halunhaku <halunhaku@users.noreply.github.com>
+
+pkgname=tingyu
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='听屿：把你的音乐，留在自己的岛屿（Omarchy 版开发预览）'
+arch=('x86_64' 'aarch64')
+url='https://github.com/halunhaku/tingyu-omarchy'
+license=('MIT')
+options=('!debug')
+# The client loads these through purego at run time: GTK and WebKitGTK for the
+# window, libsecret for source credentials, libmpv for playback. dbus and
+# xdg-utils are what "show the folder" shells out to.
+depends=(
+	'dbus'
+	'gtk3'
+	'hicolor-icon-theme'
+	'libsecret'
+	'mpv'
+	'webkit2gtk-4.1'
+	'xdg-utils'
+)
+# Go 1.27 or newer: client/go.mod pins the floor.
+makedepends=('go')
+# Builds the working tree the PKGBUILD lives in, not a release tarball: this
+# package is for trying the port, and the version in go.mod and README must
+# not drift from what is installed.
+source=()
+sha256sums=()
+
+build() {
+	cd "$startdir/../client"
+	CGO_ENABLED=0 go build -trimpath -o "$srcdir/tingyu" .
+}
+
+package() {
+	cd "$startdir/.."
+
+	install -Dm755 "$srcdir/tingyu" "$pkgdir/usr/bin/tingyu"
+	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	install -Dm644 pkgbuild/tingyu.desktop "$pkgdir/usr/share/applications/tingyu.desktop"
+	install -Dm644 pkgbuild/tingyu.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tingyu.svg"
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

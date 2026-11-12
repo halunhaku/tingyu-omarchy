@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=听屿
+Name[en]=Tingyu
+GenericName=Music Player
+GenericName[zh_CN]=音乐播放器
+Comment=把你的音乐，留在自己的岛屿
+Comment[en]=Keep your music on your own island
+Exec=tingyu
+Icon=tingyu
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;player;library;webdav;quark;
+Keywords[zh_CN]=音乐;播放器;曲库;网盘;
+StartupNotify=true
+StartupWMClass=tingyu

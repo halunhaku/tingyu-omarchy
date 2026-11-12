@@ -97,7 +97,7 @@
 - 本地目录选择（**已实测，结论：必须走 portal**）。`mygo.Dialog` 在 Linux 上只用 `GtkFileChooserNative`，未开 portal 时回退成进程内 GTK 对话框。实测（见 `docs/screenshots/omarchy/`）：
   - 进程内 GTK 对话框：窗口被摆到 x=976、宽 1668，**右边缘超出屏幕**，确认按钮落在屏幕外，实际只能取消。`m3-chooser-inprocess.png`
   - `GTK_USE_PORTAL=1`：由 `xdg-desktop-portal-gtk` 弹出 875×600，取消/选择都在，位置正常。`m3-chooser-portal.png`
-  - 待做：把 `GTK_USE_PORTAL=1` 写进 `.desktop` 的 `Exec`（M5 一起做），或由 `main.go` 在 GTK 初始化前 `setenv`；同时保留 `Parent: a.win`（已补），portal 下用于 `parent_window` 关联。
+  - 已做：`client/platform_linux.go` 在包初始化时设置 `GTK_USE_PORTAL=1`（显式设置的环境变量优先，便于在没有 portal 的会话里关掉），`Parent: a.win` 也已补上；`platform_linux_test.go` 锁住这条。
 - 拖入目录/文件是否支持，行为与 Windows 版对齐。
 - 夸克二维码登录窗口：弹窗与二维码在 Wayland 下的尺寸、缩放、扫码流程。
 - 验证码、WebDAV 凭据输入。
@@ -112,7 +112,7 @@
 
 ### M5 分发
 
-- `pkgbuild/`：`PKGBUILD`、`tingyu.desktop`（`Name`/`Comment` 含中文、`StartupWMClass=tingyu`）、图标（沿用 `client/resources/icon.png`，另出 SVG）。
+- 已落地：`pkgbuild/PKGBUILD`（从工作树构建，`makepkg -f` 实测出包 6.0 MB）、`pkgbuild/tingyu.desktop`（中英双语，`StartupWMClass=tingyu`，`desktop-file-validate` 通过）、`pkgbuild/tingyu.svg`（沿用 `client/resources/icon.svg`）；用户级安装脚本 `client/scripts/linux-install.sh`（装到 `~/.local/bin` + `~/.local/share/applications`，无 root，实测 `gio launch` 能起窗口）。
 - `makepkg -fsi` 安装后出现在应用启动器（`Super + Space`），运行 `tingyu` 直接起窗口。
 - 依赖写清：`gtk3 webkit2gtk-4.1 libsecret mpv`，音频由 mpv 自行选择。
 - 后续可提 PR 到 `omacom/omarchy-pkgs`（`packages/<name>/`，`"source": "local"`），是否提交另行决定。

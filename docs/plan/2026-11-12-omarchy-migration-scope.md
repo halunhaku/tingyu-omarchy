@@ -84,9 +84,12 @@
 - gapless、seek、音量、播放到结尾的状态回报。
 - 验收：本地导入 3 首以上（mp3/flac/m4a），能听到声音，进度、结尾、切歌正确；日志有 AO 证据。
 
-### M2 桌面集成
+### M2 桌面集成（基本完成）
 
-- MPRIS 实测：`playerctl -l` 出现听屿，播放/暂停/上一首/下一首/进度同步；锁屏与媒体键可用。
+- MPRIS 实测（已合并）：`playerctl -l` 出现听屿；title/artist/album/`mpris:length`/`mpris:artUrl`（封面 PNG 的 sha256 与内嵌封面一致）都对；`play-pause`、`next`、`previous`、`position` 全部落到应用日志，关窗后从 `playerctl -l` 消失。
+- 修掉的三个真问题：换曲瞬间位置显示上一首（甚至超过新曲长度）、播完永远 Paused（现为 Stopped）、静止时每 500 ms 重复推同一状态。
+- 独立复核（合并后，私有 session bus）：Playing→Paused、2 s 内位置推进 1.975 s、暂停后位置冻结、Next 后位置归 0。
+- 未验证：真键盘媒体键（Sr 是经 playerctl 模拟）、锁屏/桌面面板显示。归 M5：单实例锁、`DesktopEntry` 受启动环境影响（从 Cindy shell 启动会继承 `GIO_LAUNCHED_DESKTOP_FILE`）。
 - 关窗后进程退出、引擎释放、库文件可重命名（无残留锁）。
 - 通知与封面（`mygo.Notification`）；托盘/指示器是否保留待定（Hyprland 下走 Waybar 指示器还是 appindicator）。
 - 「显示所在文件夹」在 Nautilus（本机 `FileManager1` 提供者）上实测通过；Dolphin/Thunar 未测，Thunar 不走 `FileManager1`，靠 `xdg-open` 回退。

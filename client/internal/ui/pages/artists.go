@@ -56,7 +56,7 @@ func Artists(c *ui.Context, d components.Design, s *model.State) {
 				s.Artists().RequestMore()
 			}
 			row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space12).
-				Padding(tokens.Space8, tokens.Space6).Radius(tokens.RadiusSM).Focusable()
+				Padding(tokens.Space8, tokens.Space6).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 			if row.Hovered() {
 				row.Background(d.P.Hover)
 			}
@@ -69,7 +69,7 @@ func Artists(c *ui.Context, d components.Design, s *model.State) {
 						artist.Count, artist.Albums, model.FormatTotal(artist.Duration)).
 						TextColor(d.P.TextSecondary).SingleLine()
 				})
-				play := ui.Button(c, "").Padding(5).Radius(tokens.RadiusXS).
+				play := ui.Button(c, "").Padding(5).Radius(d.Radius(tokens.RadiusXS)).
 					Label("播放 " + artist.Name).Tooltip("播放全部")
 				play.Children(func() {
 					ui.Icon(c, components.IconPlay).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
@@ -132,7 +132,7 @@ func ArtistDetail(c *ui.Context, d components.Design, s *model.State) {
 					ui.Column(c).Width(128).Gap(tokens.Space6).Children(func() {
 						card := ui.Column(c).Gap(tokens.Space4).Focusable().OnClick(func() { s.OpenAlbum(album) })
 						card.Children(func() {
-							components.CoverFill(c, d, s, album.Cover, tokens.RadiusMD)
+							components.CoverFill(c, d, s, album.Cover, d.Radius(tokens.RadiusMD))
 							d.Text(c, tokens.Small, album.Name).TextColor(d.P.TextPrimary).SingleLine()
 						})
 					})

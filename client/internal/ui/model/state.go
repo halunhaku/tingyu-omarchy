@@ -17,6 +17,7 @@ import (
 	"github.com/halunhaku/tingyu/client/internal/library"
 	"github.com/halunhaku/tingyu/client/internal/metadata"
 	"github.com/halunhaku/tingyu/client/internal/player"
+	"github.com/halunhaku/tingyu/client/internal/ui/tokens"
 )
 
 // Page constants for the session state machine.
@@ -195,6 +196,11 @@ type State struct {
 	settings     Settings
 	settingsPath string
 	settingsErr  string
+
+	// desktop is what the desktop environment reports about its own look
+	// (tokens.Desktop): the Omarchy theme in effect and Hyprland's corner
+	// radius. The app reads it before the first frame and polls it after.
+	desktop tokens.Desktop
 
 	library    TrackList
 	favorites  TrackList
@@ -504,6 +510,25 @@ func (s *State) ToggleShuffle() {
 
 // Settings returns the appearance preferences.
 func (s *State) Settings() Settings { return s.settings }
+
+// SetDesktop records what the desktop environment reports about its own look:
+// the Omarchy theme in effect and Hyprland's corner radius. The app reads it
+// before the first frame and updates it when the desktop changes.
+func (s *State) SetDesktop(d tokens.Desktop) { s.desktop = d }
+
+// Desktop returns the desktop's appearance (the zero value when it could not
+// be read, which keeps the design's accent and corners).
+func (s *State) Desktop() tokens.Desktop { return s.desktop }
+
+// SystemDark is the brightness that stands for "the system": Omarchy's own
+// mode when the desktop reports one, and the window's theme otherwise. The
+// settings still overrule it when the user picks 浅色 or 深色.
+func (s *State) SystemDark(windowDark bool) bool {
+	if s.desktop.Theme != "" && s.desktop.Mode != "" {
+		return s.desktop.Dark()
+	}
+	return windowDark
+}
 
 // SettingsErr is a settings load/save problem.
 func (s *State) SettingsErr() string { return s.settingsErr }

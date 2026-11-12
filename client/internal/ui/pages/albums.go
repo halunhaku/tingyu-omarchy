@@ -45,14 +45,14 @@ func AlbumGrid(c *ui.Context, d components.Design, s *model.State, list *model.A
 		album := albums[i]
 		card := ui.Column(c).Gap(tokens.Space8).Focusable().OnClick(func() { s.OpenAlbum(album) })
 		card.Children(func() {
-			components.CoverFill(c, d, s, album.Cover, tokens.RadiusLG)
+			components.CoverFill(c, d, s, album.Cover, d.Radius(tokens.RadiusLG))
 			ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space4).Children(func() {
 				ui.Column(c).Gap(2).Grow(1).Children(func() {
 					d.Text(c, tokens.Body, album.Name).TextColor(d.P.TextPrimary).SingleLine()
 					meta := album.Artist + " · " + model.FormatCount(album.TrackCount(), "首")
 					d.Text(c, tokens.Small, meta).TextColor(d.P.TextSecondary).SingleLine()
 				})
-				play := ui.Button(c, "").Padding(4).Radius(tokens.RadiusXS).
+				play := ui.Button(c, "").Padding(4).Radius(d.Radius(tokens.RadiusXS)).
 					Label("播放专辑 " + album.Name).Tooltip("播放专辑")
 				play.Children(func() {
 					ui.Icon(c, components.IconPlay).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
@@ -117,7 +117,7 @@ func AlbumDetail(c *ui.Context, d components.Design, s *model.State) {
 	subtitle := album.Artist + years + " · " + model.FormatCount(album.TrackCount(), "首") + " · " + model.FormatTotal(album.Duration)
 	Page(c, d, s, album.Name, subtitle, back, actions, func() {
 		ui.Row(c).Gap(tokens.Space20).AlignItems(ui.End).Height(168).Children(func() {
-			components.Cover(c, d, s, album.Cover, 160, tokens.RadiusLG)
+			components.Cover(c, d, s, album.Cover, 160, d.Radius(tokens.RadiusLG))
 			ui.Column(c).Gap(tokens.Space6).Grow(1).Children(func() {
 				d.Text(c, tokens.H3, album.Artist).TextColor(d.P.TextPrimary)
 				d.Text(c, tokens.Small, subtitle).TextColor(d.P.TextSecondary)

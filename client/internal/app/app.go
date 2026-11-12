@@ -35,6 +35,7 @@ import (
 	"github.com/halunhaku/tingyu/client/internal/shell"
 	"github.com/halunhaku/tingyu/client/internal/sources"
 	"github.com/halunhaku/tingyu/client/internal/ui/model"
+	"github.com/halunhaku/tingyu/client/internal/ui/tokens"
 )
 
 type application struct {
@@ -49,6 +50,10 @@ type application struct {
 
 	winMu sync.Mutex
 	win   *mygo.Window
+
+	// desktop is what the desktop environment reports about its own look
+	// (see desktop.go); the window is drawn with it.
+	desktop tokens.Desktop
 
 	session sessionPublisher
 	// awake is the App Nap / idle-sleep guard of the media session;
@@ -127,6 +132,12 @@ func Main() error {
 	// The worker starts once the model exists; listener calls made while
 	// prepare runs wait in the channel.
 	go a.updateLoop()
+	if a.desktop.Theme != "" || a.desktop.HasRounding {
+		// Only a desktop that answered is worth polling: on the other
+		// platforms Read is a constant zero. The first poll lands after the
+		// window exists (prepare reads before it), so nothing can be missed.
+		go a.watchDesktop(a.desktop)
+	}
 
 	mygo.App.OnWindowAllClosed(func() {
 		// macOS keeps the app and playback alive until Cmd+Q, and Dock
@@ -283,6 +294,10 @@ func (a *application) prepare() error {
 	if a.lib != nil {
 		a.reloadSources()
 	}
+	// M4: the desktop's own appearance. Read here, before WhenReady creates
+	// the window, so no frame is ever drawn in the design's colours on an
+	// Omarchy session.
+	a.observeDesktop()
 	return loadErr
 }
 

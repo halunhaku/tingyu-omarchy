@@ -147,6 +147,13 @@ func (m *Model) ConfigureDataDir(dataDir string, writable bool) {
 	m.state.ConfigureDataDir(dataDir, writable)
 }
 
+// SetDesktop records the desktop environment's appearance. The app reads it
+// once before the window exists and again whenever the poller sees a change.
+func (m *Model) SetDesktop(d tokens.Desktop) { m.state.SetDesktop(d) }
+
+// Desktop returns the desktop's appearance the frame is drawn with.
+func (m *Model) Desktop() tokens.Desktop { return m.state.Desktop() }
+
 // Scan returns the scan state (the app uses it for logging).
 func (m *Model) Scan() ScanState { return m.state.Scan() }
 
@@ -160,8 +167,8 @@ func (m *Model) Revision() uint64 { return m.state.Revision() }
 func (m *Model) View(c *ui.Context) {
 	s := m.state
 	s.Tick(c.Now())
-	dark := s.Settings().Dark(c.Theme().Dark)
-	d := components.Resolve(c, dark, s.Settings().Compact())
+	dark := s.Settings().Dark(s.SystemDark(c.Theme().Dark))
+	d := components.Resolve(c, dark, s.Settings().Compact(), s.Desktop())
 	handleShortcuts(c, s)
 
 	if s.ShouldOnboard() {
@@ -291,7 +298,7 @@ func sidebar(c *ui.Context, d components.Design, s *model.State) {
 				groupLabel(c, d, "来源", len(s.Sources()))
 				sourceRow := func(label, detail string, count int64, onClick func()) {
 					row := ui.Row(c).FillWidth().Height(30).PaddingX(tokens.Space10).
-						Gap(tokens.Space8).Radius(tokens.RadiusSM).AlignItems(ui.Center).Focusable()
+						Gap(tokens.Space8).Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).Focusable()
 					if row.Hovered() {
 						row.Background(tokens.Blend(d.P.Canvas, d.P.Hover))
 					}
@@ -325,7 +332,7 @@ func sidebar(c *ui.Context, d components.Design, s *model.State) {
 				for _, playlist := range s.Playlists() {
 					playlist := playlist
 					row := ui.Row(c).FillWidth().Height(30).PaddingX(tokens.Space10).
-						Gap(tokens.Space8).Radius(tokens.RadiusSM).AlignItems(ui.Center).Focusable()
+						Gap(tokens.Space8).Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).Focusable()
 					if row.Hovered() {
 						row.Background(tokens.Blend(d.P.Canvas, d.P.Hover))
 					}
@@ -342,7 +349,7 @@ func sidebar(c *ui.Context, d components.Design, s *model.State) {
 					// An empty group is a row with a plus, not a grey sentence
 					// (§10-1): the row itself creates the first playlist.
 					row := ui.Row(c).FillWidth().Height(30).PaddingX(tokens.Space10).
-						Gap(tokens.Space8).Radius(tokens.RadiusSM).AlignItems(ui.Center).Focusable()
+						Gap(tokens.Space8).Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).Focusable()
 					if row.Hovered() {
 						row.Background(tokens.Blend(d.P.Canvas, d.P.Hover))
 					}
@@ -393,7 +400,7 @@ func groupLabel(c *ui.Context, d components.Design, label string, count int) {
 func navItem(c *ui.Context, d components.Design, s *model.State, icon *ui.SVG, label, page string, count int) {
 	active := s.Page() == page
 	row := ui.Row(c).FillWidth().Height(tokens.SidebarItem).PaddingX(tokens.Space10).
-		Gap(tokens.Space10).Radius(tokens.RadiusSM).AlignItems(ui.Center).Focusable()
+		Gap(tokens.Space10).Radius(d.Radius(tokens.RadiusSM)).AlignItems(ui.Center).Focusable()
 	if active {
 		row.Background(tokens.Blend(d.P.Canvas, d.P.AccentSoft))
 		// Paint the bar instead of laying it out: the icon must stay on the

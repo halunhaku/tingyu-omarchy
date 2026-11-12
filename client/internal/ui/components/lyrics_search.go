@@ -12,7 +12,7 @@ func LyricSearchDialog(c *ui.Context, d Design, s *model.State) {
 		return
 	}
 	d.Overlay(c, &v.Open, func() {
-		ui.Column(c).Width(720).MaxHeight(680).Radius(tokens.RadiusXL).Material(d.RegularGlass()).Border(1, d.P.Border).Padding(tokens.Space16).Gap(tokens.Space8).Children(func() {
+		ui.Column(c).Width(720).MaxHeight(680).Radius(d.Radius(tokens.RadiusXL)).Material(d.RegularGlass()).Border(1, d.P.Border).Padding(tokens.Space16).Gap(tokens.Space8).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
 				d.Text(c, tokens.H3, "搜索歌词").TextColor(d.P.TextPrimary)
 				ui.Spacer(c)

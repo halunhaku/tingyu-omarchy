@@ -88,7 +88,7 @@ func settingsSection(c *ui.Context, d components.Design, s *model.State) {
 // settingsCard is a grouped card: the raised surface of §4.3 with no padding of
 // its own, because every row carries the design's 20/18 inset.
 func settingsCard(c *ui.Context, d components.Design, build func()) {
-	ui.Column(c).FillWidth().Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).
+	ui.Column(c).FillWidth().Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).
 		Border(1, d.P.Border).Children(build)
 }
 
@@ -129,7 +129,7 @@ func appearanceSettings(c *ui.Context, d components.Design, s *model.State) {
 		}
 		settingsRow(c, d, "主题模式", "跟随系统时，随 macOS 的外观自动切换。", func() {
 			m := mode
-			seg := ui.Segmented(c, &m, "跟随系统", "浅色", "深色").Radius(tokens.RadiusSM).FontSize(12)
+			seg := ui.Segmented(c, &m, "跟随系统", "浅色", "深色").Radius(d.Radius(tokens.RadiusSM)).FontSize(12)
 			if seg.Changed() {
 				next := settings
 				next.ThemeMode = [3]string{"system", "light", "dark"}[m]
@@ -142,7 +142,7 @@ func appearanceSettings(c *ui.Context, d components.Design, s *model.State) {
 		}
 		settingsRow(c, d, "界面密度", "舒适行高 44，紧凑行高 40。", func() {
 			v := density
-			seg := ui.Segmented(c, &v, "舒适", "紧凑").Radius(tokens.RadiusSM).FontSize(12)
+			seg := ui.Segmented(c, &v, "舒适", "紧凑").Radius(d.Radius(tokens.RadiusSM)).FontSize(12)
 			if seg.Changed() {
 				next := settings
 				if v == 1 {
@@ -265,7 +265,7 @@ func dataSettings(c *ui.Context, d components.Design, s *model.State) {
 func aboutCard(c *ui.Context, d components.Design, s *model.State) {
 	counts := s.Counts()
 	ui.Column(c).FillWidth().Padding(tokens.Space20).Gap(tokens.Space12).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
 		ui.Row(c).Gap(tokens.Space12).AlignItems(ui.Center).Children(func() {
 			components.AppMark(c, d, 48, 24).Role(ui.RoleImage).Label("听屿应用图标")
 			ui.Column(c).Gap(tokens.Space2).Children(func() {

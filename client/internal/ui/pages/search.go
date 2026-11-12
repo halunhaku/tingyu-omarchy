@@ -31,7 +31,7 @@ func Search(c *ui.Context, d components.Design, s *model.State) {
 			c.After(model.SearchDebounceTime)
 		}
 		scope := search.Scope
-		seg := ui.Segmented(c, &scope, model.ScopeLabels...).Radius(tokens.RadiusSM).FontSize(13)
+		seg := ui.Segmented(c, &scope, model.ScopeLabels...).Radius(d.Radius(tokens.RadiusSM)).FontSize(13)
 		if seg.Changed() {
 			search.ShowScope(scope)
 		}
@@ -96,7 +96,7 @@ func recentSearches(c *ui.Context, d components.Design, s *model.State) {
 		ui.Row(c).Gap(tokens.Space8).Wrap().Children(func() {
 			for _, term := range search.Recent() {
 				term := term
-				chip := ui.Button(c, term).Radius(tokens.RadiusFull).FontSize(12)
+				chip := ui.Button(c, term).Radius(d.Radius(tokens.RadiusFull)).FontSize(12)
 				if chip.Clicked() {
 					search.SetQuery(term)
 				}
@@ -123,19 +123,19 @@ func albumsResults(c *ui.Context, d components.Design, s *model.State) {
 					list.RequestMore()
 				}
 				row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space12).
-					Padding(tokens.Space8, tokens.Space6).Radius(tokens.RadiusSM).Focusable()
+					Padding(tokens.Space8, tokens.Space6).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 				if row.Hovered() {
 					row.Background(d.P.Hover)
 				}
 				row.OnClick(func() { s.OpenAlbum(album) })
 				row.Children(func() {
-					components.Cover(c, d, s, album.Cover, 44, tokens.RadiusSM)
+					components.Cover(c, d, s, album.Cover, 44, d.Radius(tokens.RadiusSM))
 					ui.Column(c).Gap(2).Grow(1).Children(func() {
 						d.Text(c, tokens.Body, album.Name).TextColor(d.P.TextPrimary).SingleLine()
 						d.Text(c, tokens.Small, album.Artist+" · "+model.FormatCount(album.TrackCount(), "首")).
 							TextColor(d.P.TextSecondary).SingleLine()
 					})
-					play := ui.Button(c, "").Padding(5).Radius(tokens.RadiusXS).
+					play := ui.Button(c, "").Padding(5).Radius(d.Radius(tokens.RadiusXS)).
 						Label("播放专辑 " + album.Name).Tooltip("播放专辑")
 					play.Children(func() {
 						ui.Icon(c, components.IconPlay).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
@@ -161,7 +161,7 @@ func artistsResults(c *ui.Context, d components.Design, s *model.State) {
 					list.RequestMore()
 				}
 				row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space12).
-					Padding(tokens.Space8, tokens.Space6).Radius(tokens.RadiusSM).Focusable()
+					Padding(tokens.Space8, tokens.Space6).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 				if row.Hovered() {
 					row.Background(d.P.Hover)
 				}
@@ -188,13 +188,13 @@ func playlistsResults(c *ui.Context, d components.Design, s *model.State) {
 			for _, playlist := range rows {
 				playlist := playlist
 				row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space12).
-					Padding(tokens.Space8, tokens.Space6).Radius(tokens.RadiusSM).Focusable()
+					Padding(tokens.Space8, tokens.Space6).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 				if row.Hovered() {
 					row.Background(d.P.Hover)
 				}
 				row.OnClick(func() { s.OpenPlaylist(playlist) })
 				row.Children(func() {
-					ui.Box(c).Size(44, 44).Radius(tokens.RadiusSM).Background(d.P.SurfaceSunken).Center().Children(func() {
+					ui.Box(c).Size(44, 44).Radius(d.Radius(tokens.RadiusSM)).Background(d.P.SurfaceSunken).Center().Children(func() {
 						ui.Icon(c, components.IconQueue).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
 					})
 					ui.Column(c).Gap(2).Grow(1).Children(func() {
@@ -236,7 +236,7 @@ func allResults(c *ui.Context, d components.Design, s *model.State, results mode
 					album := album
 					card := ui.Column(c).Width(132).Gap(tokens.Space6).Focusable().OnClick(func() { s.OpenAlbum(album) })
 					card.Children(func() {
-						components.CoverFill(c, d, s, album.Cover, tokens.RadiusMD)
+						components.CoverFill(c, d, s, album.Cover, d.Radius(tokens.RadiusMD))
 						d.Text(c, tokens.Small, album.Name).TextColor(d.P.TextPrimary).SingleLine()
 						d.Text(c, tokens.Overline, album.Artist).TextColor(d.P.TextSecondary).SingleLine()
 					})
@@ -251,7 +251,7 @@ func allResults(c *ui.Context, d components.Design, s *model.State, results mode
 			for _, artist := range results.Artists {
 				artist := artist
 				row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space10).
-					Padding(tokens.Space6, tokens.Space4).Radius(tokens.RadiusSM).Focusable()
+					Padding(tokens.Space6, tokens.Space4).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 				if row.Hovered() {
 					row.Background(d.P.Hover)
 				}
@@ -271,7 +271,7 @@ func allResults(c *ui.Context, d components.Design, s *model.State, results mode
 			for _, playlist := range results.Playlists {
 				playlist := playlist
 				row := ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(tokens.Space10).
-					Padding(tokens.Space6, tokens.Space4).Radius(tokens.RadiusSM).Focusable()
+					Padding(tokens.Space6, tokens.Space4).Radius(d.Radius(tokens.RadiusSM)).Focusable()
 				if row.Hovered() {
 					row.Background(d.P.Hover)
 				}

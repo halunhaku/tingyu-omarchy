@@ -34,7 +34,7 @@ func ScanPanel(c *ui.Context, d components.Design, scan model.ScanState) {
 		return
 	}
 	ui.Column(c).Gap(tokens.Space6).Padding(tokens.Space12, tokens.Space10).
-		Radius(tokens.RadiusMD).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
+		Radius(d.Radius(tokens.RadiusMD)).Background(d.P.SurfaceRaised).Border(1, d.P.Border).Children(func() {
 		if scan.Running {
 			ui.Row(c).Gap(tokens.Space8).AlignItems(ui.Center).Children(func() {
 				ui.Spinner(c)
@@ -82,7 +82,7 @@ func SortMenu(c *ui.Context, d components.Design, list *model.TrackList) {
 		if m.Item("降序").Checked(!list.Asc()).Chosen() {
 			list.SetSort(list.Sort(), false)
 		}
-	}).Radius(tokens.RadiusSM).FontSize(13)
+	}).Radius(d.Radius(tokens.RadiusSM)).FontSize(13)
 }
 
 // SourceMenu filters a list by source.
@@ -102,7 +102,7 @@ func SourceMenu(c *ui.Context, d components.Design, s *model.State, list *model.
 				list.SetSource(source.ID)
 			}
 		}
-	}).Radius(tokens.RadiusSM).FontSize(13)
+	}).Radius(d.Radius(tokens.RadiusSM)).FontSize(13)
 }
 
 // PlayAll starts a list from its first row.

@@ -87,7 +87,7 @@ func stageTopBar(c *ui.Context, d components.Design, s *model.State, track *libr
 	ui.Row(c).FillWidth().Height(tokens.StageTopBar).Padding(0, tokens.StagePadding).
 		AlignItems(ui.Center).Children(func() {
 		back := ui.Button(c, "").Size(tokens.ToolbarControl, tokens.ToolbarControl).Padding(6).
-			Radius(tokens.RadiusSM).Label("返回").Tooltip("关闭（Esc）").
+			Radius(d.Radius(tokens.RadiusSM)).Label("返回").Tooltip("关闭（Esc）").
 			Background(ui.Transparent).Border(0, ui.Transparent)
 		back.Children(func() {
 			ui.Icon(c, components.IconBack).FontSize(tokens.IconNormal).TextColor(d.P.TextSecondary)
@@ -129,7 +129,7 @@ func stageTopBar(c *ui.Context, d components.Design, s *model.State, track *libr
 // stageIconButton is one quiet icon key of the stage: no face of its own, so
 // the keys sit on the atmosphere instead of on button-coloured squares (§4.3).
 func stageIconButton(c *ui.Context, d components.Design, icon *ui.SVG, color ui.Color, size float32, label string) ui.Element {
-	button := ui.Button(c, "").Size(size, size).Padding(6).Radius(tokens.RadiusSM).Label(label).
+	button := ui.Button(c, "").Size(size, size).Padding(6).Radius(d.Radius(tokens.RadiusSM)).Label(label).
 		Background(ui.Transparent).Border(0, ui.Transparent)
 	button.Children(func() {
 		ui.Icon(c, icon).FontSize(size * 0.5).TextColor(color)
@@ -146,7 +146,7 @@ func stageLeftColumn(c *ui.Context, d components.Design, s *model.State, v *stag
 		coverSize = 180
 	}
 	ui.Column(c).Width(tokens.StageCoverMax).Gap(0).AlignItems(ui.Start).Children(func() {
-		cover := components.Cover(c, d, s, track.CoverArtPath, coverSize, tokens.RadiusLG)
+		cover := components.Cover(c, d, s, track.CoverArtPath, coverSize, d.Radius(tokens.RadiusLG))
 		cover.Shadow(0, 28, 60, -18, ui.RGBA(0, 0, 0, 110))
 		cover.Transition(ui.ElementTransition{Match: components.CoverMatch{ID: track.ID}, Duration: tokens.DurationStage})
 		ui.Box(c).Height(tokens.Space24)
@@ -398,7 +398,7 @@ func stageUpNext(c *ui.Context, d components.Design, s *model.State) {
 			components.TrackContextMenu(m, s, track)
 		})
 		row.Children(func() {
-			components.Cover(c, d, s, track.CoverArtPath, 24, tokens.RadiusXS)
+			components.Cover(c, d, s, track.CoverArtPath, 24, d.Radius(tokens.RadiusXS))
 			d.Text(c, tokens.Label, track.Title).TextColor(d.P.TextSecondary).Grow(1).SingleLine()
 			d.Text(c, tokens.NumSm, model.FormatDuration(track.Duration)).TextColor(d.P.TextTertiary)
 		})

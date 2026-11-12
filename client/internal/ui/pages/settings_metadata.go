@@ -59,7 +59,7 @@ func metadataSettings(c *ui.Context, d components.Design, s *model.State) {
 	}
 
 	card := ui.Column(c).FillWidth().Gap(tokens.Space10).Padding(tokens.Space16).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	card.Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
 			d.Text(c, tokens.Body, "补全").TextColor(d.P.TextPrimary)
@@ -118,7 +118,7 @@ func metadataSettings(c *ui.Context, d components.Design, s *model.State) {
 	})
 
 	cache := ui.Column(c).FillWidth().Gap(tokens.Space8).Padding(tokens.Space16).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	cache.Children(func() {
 		d.Text(c, tokens.Body, "封面缓存").TextColor(d.P.TextPrimary)
 		d.Text(c, tokens.Small,
@@ -141,7 +141,7 @@ func metadataSettings(c *ui.Context, d components.Design, s *model.State) {
 
 	form := aiFormOf(s)
 	ai := ui.Column(c).FillWidth().Gap(tokens.Space10).Padding(tokens.Space16).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	ai.Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
 			d.Text(c, tokens.Body, "AI 识别（可选）").TextColor(d.P.TextPrimary)

@@ -57,10 +57,10 @@ func Onboarding(c *ui.Context, d components.Design, s *model.State) {
 
 func onboardingCard(c *ui.Context, d components.Design, icon *ui.SVG, title, text, tag string, enabled bool, action func()) {
 	card := ui.Column(c).Width(232).Gap(tokens.Space8).Padding(tokens.Space16).
-		Radius(tokens.RadiusLG).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
+		Radius(d.Radius(tokens.RadiusLG)).Background(d.P.SurfaceRaised).Border(1, d.P.Border)
 	card.Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(tokens.Space8).Children(func() {
-			ui.Box(c).Size(32, 32).Radius(tokens.RadiusSM).Background(d.P.SurfaceSunken).Center().Children(func() {
+			ui.Box(c).Size(32, 32).Radius(d.Radius(tokens.RadiusSM)).Background(d.P.SurfaceSunken).Center().Children(func() {
 				ui.Icon(c, icon).FontSize(tokens.IconCompact).TextColor(d.P.TextSecondary)
 			})
 			d.Text(c, tokens.Body, title).TextColor(d.P.TextPrimary)

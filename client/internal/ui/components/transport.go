@@ -52,7 +52,7 @@ func Transport(c *ui.Context, d Design, s *model.State) {
 			}
 			info.Children(func() {
 				if hasTrack {
-					cover := Cover(c, d, s, track.CoverArtPath, 48, tokens.RadiusSM).Shrink(0)
+					cover := Cover(c, d, s, track.CoverArtPath, 48, d.Radius(tokens.RadiusSM)).Shrink(0)
 					cover.Transition(ui.ElementTransition{Match: CoverMatch{ID: track.ID}, Duration: tokens.DurationStage})
 					cover.Cursor(ui.CursorPointer).OnClick(s.OpenStage)
 					ui.Column(c).Gap(2).Grow(1).MinWidth(0).Children(func() {
@@ -61,7 +61,7 @@ func Transport(c *ui.Context, d Design, s *model.State) {
 						d.Text(c, tokens.Small, model.TrackSubtitle(*track)).TextColor(d.P.TextSecondary).SingleLine()
 					})
 				} else {
-					Cover(c, d, s, "", 48, tokens.RadiusSM).Shrink(0)
+					Cover(c, d, s, "", 48, d.Radius(tokens.RadiusSM)).Shrink(0)
 					ui.Column(c).Gap(2).Grow(1).MinWidth(0).Children(func() {
 						d.Text(c, tokens.Caption, "未在播放").TextColor(d.P.TextSecondary)
 						d.Text(c, tokens.Small, "从曲库中选一首歌开始播放").TextColor(d.P.TextTertiary).SingleLine()
@@ -71,7 +71,7 @@ func Transport(c *ui.Context, d Design, s *model.State) {
 
 			ui.Box(c).Grow(1).MinWidth(214).Center().Children(func() {
 				ui.Row(c).Gap(tokens.Space12).AlignItems(ui.Center).Children(func() {
-					shuffle := ui.Button(c, "").Size(30, 30).Padding(6).Radius(tokens.RadiusSM).
+					shuffle := ui.Button(c, "").Size(30, 30).Padding(6).Radius(d.Radius(tokens.RadiusSM)).
 						Label("随机播放：" + model.ShuffleLabel(s.Shuffle())).
 						Tooltip("随机播放：" + model.ShuffleLabel(s.Shuffle()))
 					shuffle.Children(func() {
@@ -110,7 +110,7 @@ func Transport(c *ui.Context, d Design, s *model.State) {
 							_ = a.Next()
 						}
 					})
-					repeat := ui.Button(c, "").Size(30, 30).Padding(6).Radius(tokens.RadiusSM).
+					repeat := ui.Button(c, "").Size(30, 30).Padding(6).Radius(d.Radius(tokens.RadiusSM)).
 						Label("循环：" + model.RepeatLabel(s.Repeat())).
 						Tooltip("当前：" + model.RepeatLabel(s.Repeat()) + "，点击切换到" + model.RepeatNext(s.Repeat()))
 					repeat.Children(func() {
@@ -193,7 +193,7 @@ func transportButton(c *ui.Context, d Design, icon *ui.SVG, size float32, label 
 	// The 1 px border is part of the fixed box. Reserve the icon's exact width
 	// so it cannot overflow the content box and drift to the right edge.
 	padding := (size-tokens.IconNormal)/2 - 1
-	button := ui.Button(c, "").Size(size, size).Padding(padding).Radius(tokens.RadiusSM).
+	button := ui.Button(c, "").Size(size, size).Padding(padding).Radius(d.Radius(tokens.RadiusSM)).
 		Label(label).Tooltip(label)
 	button.Children(func() {
 		ui.Icon(c, icon).FontSize(tokens.IconNormal).TextColor(d.P.TextSecondary)

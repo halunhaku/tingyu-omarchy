@@ -536,14 +536,6 @@ func (c *Controller) onSnapshot(snapshot mpv.Snapshot) {
 	if snapshot.Playing && snapshot.Index >= 0 && snapshot.Index < len(c.resolved) {
 		c.failure = nil
 	}
-	c.update = Update{
-		Snapshot: snapshot,
-		Index:    c.currentIndex,
-		Track:    c.currentTrack,
-		Repeat:   c.repeat,
-		Shuffle:  c.shuffle,
-		Failure:  c.failure,
-	}
 	// The engine classifies its own failures (status, transport, decode) from
 	// the lines FFmpeg logs; the controller only adds the title it knows and
 	// keeps the failure until playback actually resumes.
@@ -554,19 +546,34 @@ func (c *Controller) onSnapshot(snapshot mpv.Snapshot) {
 		}
 		c.failure = &failure
 	}
-	if c.failure != nil {
-		c.update.Failure = c.failure
-	}
 	generation := c.generation
 	track := c.currentTrack
 	currentIndex := c.currentIndex
 	itemCount := len(c.resolved)
 	c.mu.Unlock()
 
+	// The end of the queue is handled before the state is published. A listener
+	// that sees "completed" and presses play (the window's play button does
+	// exactly that) would otherwise be paused and rewound by the repeat-off
+	// branch milliseconds later: the file loads, stays paused at zero and the
+	// button looks dead. Pressing play after this returns still works, because
+	// the published state is completed and Play() restarts the entry.
+	c.handleCompletion(snapshot, currentIndex, itemCount, generation)
+
+	c.mu.Lock()
+	c.update = Update{
+		Snapshot: snapshot,
+		Index:    c.currentIndex,
+		Track:    c.currentTrack,
+		Repeat:   c.repeat,
+		Shuffle:  c.shuffle,
+		Failure:  c.failure,
+	}
+	c.mu.Unlock()
+
 	c.notify()
 	c.recordPlay(snapshot, track)
 	c.recordDuration(snapshot, track, currentIndex)
-	c.handleCompletion(snapshot, currentIndex, itemCount, generation)
 	c.ensureAhead(prefetchCount, generation)
 }
 

@@ -536,14 +536,6 @@ func (c *Controller) onSnapshot(snapshot mpv.Snapshot) {
 	if snapshot.Playing && snapshot.Index >= 0 && snapshot.Index < len(c.resolved) {
 		c.failure = nil
 	}
-	c.update = Update{
-		Snapshot: snapshot,
-		Index:    c.currentIndex,
-		Track:    c.currentTrack,
-		Repeat:   c.repeat,
-		Shuffle:  c.shuffle,
-		Failure:  c.failure,
-	}
 	// The engine classifies its own failures (status, transport, decode) from
 	// the lines FFmpeg logs; the controller only adds the title it knows and
 	// keeps the failure until playback actually resumes.
@@ -554,19 +546,40 @@ func (c *Controller) onSnapshot(snapshot mpv.Snapshot) {
 		}
 		c.failure = &failure
 	}
-	if c.failure != nil {
-		c.update.Failure = c.failure
-	}
 	generation := c.generation
 	track := c.currentTrack
 	currentIndex := c.currentIndex
 	itemCount := len(c.resolved)
 	c.mu.Unlock()
 
+	// The end of the queue is handled before the state is published. A listener
+	// that sees "completed" and presses play (the window's play button does
+	// exactly that) would otherwise be paused and rewound by the repeat-off
+	// branch milliseconds later: the file loads, stays paused at zero and the
+	// button looks dead. Pressing play after this returns still works, because
+	// the published state is completed and Play() restarts the entry.
+	if c.handleCompletion(snapshot, currentIndex, itemCount, generation) {
+		// The queue wrapped: the engine is already loading its first entry and
+		// will publish that. Publishing this snapshot would carry the finished
+		// entry with the wrapped index, which reads as "stopped at the first
+		// track" to the media session and the window.
+		return
+	}
+
+	c.mu.Lock()
+	c.update = Update{
+		Snapshot: snapshot,
+		Index:    c.currentIndex,
+		Track:    c.currentTrack,
+		Repeat:   c.repeat,
+		Shuffle:  c.shuffle,
+		Failure:  c.failure,
+	}
+	c.mu.Unlock()
+
 	c.notify()
 	c.recordPlay(snapshot, track)
 	c.recordDuration(snapshot, track, currentIndex)
-	c.handleCompletion(snapshot, currentIndex, itemCount, generation)
 	c.ensureAhead(prefetchCount, generation)
 }
 
@@ -616,24 +629,27 @@ func (c *Controller) recordDuration(snapshot mpv.Snapshot, track *library.Track,
 	}(track.ID, snapshot.Duration)
 }
 
-func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount int, generation uint64) {
+// handleCompletion acts on the end of a queue entry and reports whether it
+// wrapped the queue to its first entry, which the caller must not publish as
+// the finished state.
+func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount int, generation uint64) bool {
 	if snapshot.Processing != mpv.Completed {
 		c.mu.Lock()
 		c.completionDone = false
 		c.mu.Unlock()
-		return
+		return false
 	}
 	c.mu.Lock()
 	if c.completionDone {
 		c.mu.Unlock()
-		return
+		return false
 	}
 	c.completionDone = true
 	repeat := c.repeat
 	atEnd := itemCount > 0 && index >= itemCount-1
 	c.mu.Unlock()
 	if generation != c.generation {
-		return
+		return false
 	}
 
 	switch repeat {
@@ -651,6 +667,7 @@ func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount in
 			c.mu.Lock()
 			c.currentIndex = 0
 			c.mu.Unlock()
+			return true
 		}
 	case RepeatOff:
 		// Pause and rewind: play() on a completed engine is a no-op, and the
@@ -658,6 +675,7 @@ func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount in
 		_ = c.engine.Pause()
 		_ = c.engine.Seek(0)
 	}
+	return false
 }
 
 // Play resumes, restarting a finished queue when needed.

@@ -397,6 +397,56 @@ func TestCompletionRepeatAllReplaysFromTheStart(t *testing.T) {
 	}
 }
 
+// TestPlayOnCompletionIsNotUndoneByTheHandler covers the race the M1 run hit
+// every few tries: the completed snapshot reaches listeners (and the window's
+// play button) before the controller runs its end-of-queue branch, so a play
+// request in that window was followed by the repeat-off Pause and stayed
+// paused, with the file loaded at position zero.
+func TestPlayOnCompletionIsNotUndoneByTheHandler(t *testing.T) {
+	engine := newFakeEngine()
+	engine.silentPlay = true // keep the fake's echo out of the recorded order
+	c := newController(t, engine, resolver, newFakeHistory())
+	c.CycleRepeat() // all → one
+	c.CycleRepeat() // one → off
+	if err := c.PlayTracks(tracks(1), 0); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "first item", func() bool { return len(engine.itemURIs()) == 1 })
+
+	// The listener stands in for the play button: it fires on the completed
+	// state, before the controller has acted on it.
+	pressed := false
+	c.SetListener(func(update Update) {
+		if update.Snapshot.Processing == mpv.Completed && !pressed {
+			pressed = true
+			_ = c.Play()
+		}
+	})
+	snapshot := engine.Snapshot()
+	snapshot.Processing = mpv.Completed
+	snapshot.Playing = false
+	snapshot.Position = 30 * time.Second
+	engine.push(snapshot)
+
+	waitFor(t, "play request", func() bool { return engine.hasCall("Play") })
+	time.Sleep(50 * time.Millisecond)
+	calls := engine.callList()
+	playAt := -1
+	for i, call := range calls {
+		if call == "Play" {
+			playAt = i
+		}
+	}
+	if playAt < 0 {
+		t.Fatalf("no play request reached the engine: %v", calls)
+	}
+	for _, call := range calls[playAt+1:] {
+		if call == "Pause" {
+			t.Fatalf("end-of-queue handling paused the queue after the play request: %v", calls)
+		}
+	}
+}
+
 func TestCompletionRepeatOffPausesAndRewinds(t *testing.T) {
 	engine := newFakeEngine()
 	c := newController(t, engine, resolver, newFakeHistory())
@@ -559,5 +609,48 @@ func TestPreviousAtStartRewinds(t *testing.T) {
 	}
 	if !engine.hasCall("Seek(0s)") {
 		t.Fatalf("previous at the first track did not rewind: %v", engine.callList())
+	}
+}
+
+// TestRepeatAllWrapDoesNotPublishACompletedState pins what the queue's wrap
+// looks like from outside: the engine moves on to the first entry, so the
+// finished-entry snapshot must not be published with the wrapped index. A
+// media session reading that would flash "stopped" at every loop.
+func TestRepeatAllWrapDoesNotPublishACompletedState(t *testing.T) {
+	engine := newFakeEngine()
+	// The fake answers PlayIndex and Play with a snapshot of its own; silence
+	// them so this test observes only what the controller publishes for the
+	// finished entry.
+	engine.silentIndex = true
+	engine.silentPlay = true
+	c := newController(t, engine, resolver, newFakeHistory())
+	list := tracks(3)
+	if err := c.PlayTracks(list, 2); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the queue", func() bool { return len(engine.itemURIs()) == 3 })
+
+	var mu sync.Mutex
+	var published []Update
+	c.SetListener(func(update Update) {
+		mu.Lock()
+		published = append(published, update)
+		mu.Unlock()
+	})
+
+	snapshot := engine.Snapshot()
+	snapshot.Processing = mpv.Completed
+	snapshot.Playing = false
+	snapshot.Index = 2
+	snapshot.Position = time.Minute
+	engine.push(snapshot)
+
+	waitFor(t, "the wrap", func() bool { return engine.hasCall("PlayIndex(0)") })
+	mu.Lock()
+	defer mu.Unlock()
+	for _, update := range published {
+		if update.Snapshot.Processing == mpv.Completed {
+			t.Fatalf("published a completed state after wrapping: index=%d track=%v", update.Index, update.Track)
+		}
 	}
 }

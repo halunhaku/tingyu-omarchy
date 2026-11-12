@@ -89,7 +89,9 @@
 - MPRIS 实测（已合并）：`playerctl -l` 出现听屿；title/artist/album/`mpris:length`/`mpris:artUrl`（封面 PNG 的 sha256 与内嵌封面一致）都对；`play-pause`、`next`、`previous`、`position` 全部落到应用日志，关窗后从 `playerctl -l` 消失。
 - 修掉的三个真问题：换曲瞬间位置显示上一首（甚至超过新曲长度）、播完永远 Paused（现为 Stopped）、静止时每 500 ms 重复推同一状态。
 - 独立复核（合并后，私有 session bus）：Playing→Paused、2 s 内位置推进 1.975 s、暂停后位置冻结、Next 后位置归 0。
-- 未验证：真键盘媒体键（Sr 是经 playerctl 模拟）、锁屏/桌面面板显示。归 M5：单实例锁、`DesktopEntry` 受启动环境影响（从 Cindy shell 启动会继承 `GIO_LAUNCHED_DESKTOP_FILE`）。
+- 未验证：真键盘媒体键（已改成经 playerctl 模拟的说明）、锁屏/桌面面板显示。
+- 单实例锁已补：第二次启动会把已开窗口提到前台并立刻退出（实测：第二次启动退出码 0、日志 `app: another instance is running`、进程数不变）。`TINGYU_DATA_DIR` 存在时不加锁，验收/开发可以并行跑多份副本。
+- 仍归 M5：`DesktopEntry` 受启动环境影响（从 Cindy shell 启动会继承 `GIO_LAUNCHED_DESKTOP_FILE`，面板显示成别人的 id）。
 - 关窗后进程退出、引擎释放、库文件可重命名（无残留锁）。
 - 通知与封面（`mygo.Notification`）；托盘/指示器是否保留待定（Hyprland 下走 Waybar 指示器还是 appindicator）。
 - 「显示所在文件夹」在 Nautilus（本机 `FileManager1` 提供者）上实测通过；Dolphin/Thunar 未测，Thunar 不走 `FileManager1`，靠 `xdg-open` 回退。

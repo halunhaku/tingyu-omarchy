@@ -124,6 +124,28 @@ func Main() error {
 		done:     make(chan struct{}),
 	}
 	defer a.startup.Close()
+	// One instance per library. A second launch (the launcher, a file
+	// manager, a second click) focuses the window that is already open
+	// instead of opening a second player with its own media-session name and
+	// a second connection to the same SQLite file. Acceptance runs open a
+	// copy through TINGYU_DATA_DIR and must stay free to run side by side,
+	// so the lock is only taken on the real library.
+	if os.Getenv("TINGYU_DATA_DIR") == "" {
+		if !mygo.App.RequestSingleInstanceLock() {
+			a.logf("app: another instance is running; asked it to show its window")
+			return nil
+		}
+		mygo.App.OnSecondInstance(func([]string, string) {
+			// The window may not exist yet while this one is still starting;
+			// it will be shown when it is ready anyway.
+			a.winMu.Lock()
+			defer a.winMu.Unlock()
+			if a.win != nil {
+				a.win.Show()
+				a.win.Focus()
+			}
+		})
+	}
 	if err := a.prepare(); err != nil {
 		// A library that cannot be opened is not fatal: the window opens and
 		// explains why, so the failure is visible.

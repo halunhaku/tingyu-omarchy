@@ -1,0 +1,25 @@
+startup data dir            0.0ms since main (process start unavailable)
+library: created /tmp/tingyu-test/library.sqlite (schema version 2)
+library: 0 tracks / 0 albums / 0 artists / 0 playlists from /tmp/tingyu-test/library.sqlite (read-write, user_version 2)
+startup library read        4.4ms since main (process start unavailable)
+metadata: four sources ready; independent AI recognition ready=false
+playback: libmpv libmpv.so.2 client API 2.5
+mpv: state idle playing=false pos=0.00 dur=0.00 index=-1 path=
+menu: application menu installed
+window: 1200x760, minimum 900x600
+startup window created    130.9ms since main (process start unavailable)
+session: mygo.NowPlaying ready
+startup ready             298.8ms since main (process start unavailable)
+metadata: automatic pass after startup
+metadata: pass start automatic=true
+metadata: pass done attempted=0 changed=0 offline=0 skipped=0 failed=0 covers=0 lyrics=0
+startup focused           301.5ms since main (process start unavailable)
+startup focused          2914.2ms since main (process start unavailable)
+startup focused          7392.2ms since main (process start unavailable)
+startup focused         14933.4ms since main (process start unavailable)
+startup focused         19658.6ms since main (process start unavailable)
+app: quitting
+session: now playing cleared
+playback: engine closed
+app: quit complete
+window: closed

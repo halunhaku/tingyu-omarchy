@@ -1,5 +1,5 @@
-# Go client CI: the repository's only workflow since M7 removed the other
-# client (plan §6 M7, docs/plan/2026-10-26-macos-mygo-m7-record.md).
+# Go client CI for macOS: the workflow the macOS line has always had (M7
+# removed the other client; plan §6 M7, docs/plan/2026-10-26-macos-mygo-m7-record.md).
 #
 # What runs on every client change:
 #   gofmt -l (no output allowed) → go vet → go test -race → bundle.sh (ad-hoc
@@ -21,17 +21,10 @@
 # a log or the repository.
 name: Go client (macOS)
 
+# Manual only in this fork: the account has no macOS runners, so every push
+# would end as a cancelled check. The macOS build remains upstream's
+# (halunhaku/tingyu); this fork is verified on Linux.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'client/**'
-      - '.github/workflows/macos.yml'
-  pull_request:
-    paths:
-      - 'client/**'
-      - '.github/workflows/macos.yml'
   workflow_dispatch:
 
 concurrency:

@@ -123,7 +123,7 @@
 - 功能对照表：逐项对照 Windows 版「已实现」清单打勾，未通过项写原因。
 - 性能：冷启动、曲库 5000 首滚动、内存占用，与 Windows 记录同口径对比。
 - 回归：改了共享代码要同时跑通 `GOOS=windows` 与 `GOOS=darwin` 构建，避免为 Linux 破坏上游。
-- CI：加 `.github/workflows/linux.yml`（ubuntu-latest，Go 按 `client/go.mod`，`go build` / `go vet` / `go test -short`，外加 windows/darwin 交叉编译），让 Linux 文件不再只靠本机验证。
+- CI：`.github/workflows/linux.yml` 已在跑（ubuntu-24.04，Go 按 `client/go.mod`，gofmt / vet / `go test -short` / windows+darwin 交叉编译）；后续补一遍 `-race`（需要 `CGO_ENABLED=1` 与 gcc）。
 
 ---
 
@@ -137,7 +137,8 @@
 | 交叉编译 | `GOOS=windows`、`GOOS=darwin` 各 `go build ./...` 通过 |
 | `go vet ./...` | 通过 |
 | `gofmt -l` | `cmd/w0accept/main.go` 沿用上游格式，未动 |
-| CI | 仓库只有 `macos.yml`（只编 darwin），Linux 文件在本机之外没有任何自动验证——见 M6 |
+| CI | 新增 `linux.yml`：gofmt / vet / `go test -short` / Windows+macOS 交叉编译，首次运行即抓到两个环境相关的性能闸门失败（`TestTenThousandRowPaging` 16.46 ms、`TestStageFrameBudget` 冷帧 42 ms），已在 CI 里按名跳过，阈值未改 |
+| macOS CI | `macos.yml` 在本账号下没有可用的 macOS runner（`The configuration 'macos-14-arm64-us-default' is not supported`），每次推送都变成 cancelled，已改为手动触发；macOS 构建仍由上游仓负责 |
 
 ---
 

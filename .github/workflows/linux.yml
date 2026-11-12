@@ -5,10 +5,11 @@
 # Linux change break the Windows or macOS build? Both read the Go version from
 # client/go.mod, so the two workflows cannot drift apart.
 #
-# Tests run with -short: the 10,000-row scroll gate in internal/shell is tuned
-# for 16.7 ms frames and lands at 16.7-17.6 ms on the Omarchy box, so a plain
-# run would be red on timing noise rather than on a regression. The gate still
-# runs in the macOS job, where it was tuned.
+# Tests run with -short and skip the three 16.7 ms frame-budget gates
+# (TestLibraryScrollP95At10000Rows, TestTenThousandRowPaging,
+# TestStageFrameBudget): they measure a machine, not the code, and a shared
+# runner lands at 16.5-42 ms. They stay in `go test ./...` on a developer
+# machine, which is where they were tuned.
 name: Go client (Linux)
 
 on:
@@ -62,7 +63,10 @@ jobs:
         run: go vet ./...
 
       - name: go test -short
-        run: go test -short -count=1 ./...
+        run: |
+          go test -short -count=1 \
+            -skip 'TestLibraryScrollP95At10000Rows|TestTenThousandRowPaging|TestStageFrameBudget' \
+            ./...
 
       - name: Cross-build Windows and macOS
         run: |

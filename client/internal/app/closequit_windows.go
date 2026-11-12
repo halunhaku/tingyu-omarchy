@@ -1,0 +1,8 @@
+//go:build windows
+
+package app
+
+// windowCloseQuits reports whether closing the last window ends the process.
+// On Windows the window is the app: closing it quits, which also stops the
+// engine and releases the library instead of leaving a windowless process.
+func windowCloseQuits() bool { return true }

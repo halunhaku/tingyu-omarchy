@@ -1,0 +1,590 @@
+// Package library reads and writes Tingyu's SQLite library.
+//
+// The schema, the indexes and PRAGMA user_version=2 were shared with the
+// Flutter client (app/lib/data/db/schema.dart, removed at M7). The version
+// stays frozen for 30 days after the switch so the pre-switch backup still
+// opens in the archived Flutter build: migration is "补差" (create what is
+// missing, add nullable columns) and never bumps the version (plan §8.1
+// rule 3). The table and column names keep the Flutter-era shape for the
+// same reason.
+//
+// Writes: the scan merge, the play history and duration backfill (M1/M2), and
+// — since the kernel-data milestone — favourites, playlists and source
+// deletion, which M4 had to show as unavailable. Metadata enrichment and
+// lyric fetching still write nothing (M5).
+//
+// Since M7 the real library in ~/Library/Application Support/com.halunhaku.tingyu
+// is the one the client opens read-write. Development and acceptance runs
+// point TINGYU_DATA_DIR at a copy, and TINGYU_READ_ONLY=1 opens the selected
+// library without writing it (plan §8.1 rule 2, now an explicit opt-in).
+package library
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/egoist/mygo/plugins/sqlite"
+)
+
+// SchemaVersion is the PRAGMA user_version this client reads and writes. The
+// migration plan freezes it at 2 for the dual-track period (plan §8.1), so a
+// different value is refused instead of guessed at.
+const SchemaVersion = 2
+
+const bundleID = "com.halunhaku.tingyu"
+
+// TimeLayout is how the Flutter client stores DateTimes (drift's
+// storeDateTimeAsText): UTC, microseconds, trailing Z. Writing any other
+// shape makes the other client read the value as an invalid DateTime.
+const TimeLayout = "2006-01-02T15:04:05.000000Z"
+
+// ErrSchemaVersion reports a library whose user_version is not the one this
+// client understands. It never repairs the database.
+type ErrSchemaVersion struct {
+	Path string
+	Got  int
+	Want int
+}
+
+func (e *ErrSchemaVersion) Error() string {
+	return fmt.Sprintf("library: %s has user_version %d, want %d (not migrating)", e.Path, e.Got, e.Want)
+}
+
+// Track is one row of the tracks table. Only the columns M1 shows or needs
+// are mapped; the rest stay in the database untouched.
+type Track struct {
+	ID           string
+	SourceID     string
+	Title        string
+	Artist       string
+	Album        string
+	Duration     time.Duration
+	TrackNumber  int
+	DiscNumber   int
+	Year         int
+	Genre        string
+	Bitrate      int
+	SampleRate   int
+	FileFormat   string
+	FilePath     string
+	FileSize     int64
+	LastModified time.Time
+	CoverArtPath string
+	CoverArtURL  string
+	Lyrics       string
+	IsFavorite   bool
+	DateAdded    time.Time
+	PlayCount    int64
+	LastPlayedAt time.Time
+}
+
+// Source is one row of music_sources.
+type Source struct {
+	ID              string
+	Name            string
+	Kind            string
+	LocalFolderPath string
+	// Remote source fields. M3 writes them; UpsertLocalSource keeps writing
+	// only the local columns, so its behaviour is unchanged.
+	WebDAVURL        string
+	WebDAVUsername   string
+	WebDAVRootPath   string
+	QuarkFolderFID   string
+	QuarkFolderPath  string
+	QuarkAccountName string
+	SyncStatus       string
+	LastSyncedAt     time.Time
+	TrackCount       int64
+}
+
+// DataDir returns the directory holding library.sqlite: TINGYU_DATA_DIR
+// when set, otherwise the platform's per-user application data directory
+// (see userDataDir: ~/Library/Application Support/com.halunhaku.tingyu on
+// macOS, %AppData%\com.halunhaku.tingyu on Windows).
+// The default is the real library the client owns since M7; TINGYU_DATA_DIR
+// is the override development and acceptance runs use to work on a copy
+// (plan §8.1 rule 2).
+func DataDir() (string, error) {
+	if dir := strings.TrimSpace(os.Getenv("TINGYU_DATA_DIR")); dir != "" {
+		return expandHome(dir)
+	}
+	return userDataDir()
+}
+
+// Path returns the library file inside dataDir.
+func Path(dataDir string) string {
+	return filepath.Join(dataDir, "library.sqlite")
+}
+
+// ReadOnly reports whether this process opens the library without writing it.
+// TINGYU_READ_ONLY=1 is the explicit opt-in for inspecting a library (the
+// real one included) without touching it; every other run is read-write on
+// the selected data directory since the M7 switch (plan §6 M7).
+func ReadOnly() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TINGYU_READ_ONLY"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// CoversDir returns the cover cache directory inside dataDir.
+func CoversDir(dataDir string) string {
+	return filepath.Join(dataDir, "covers")
+}
+
+func expandHome(path string) (string, error) {
+	if path == "~" || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("library: home directory: %w", err)
+		}
+		return filepath.Join(home, strings.TrimPrefix(path, "~")), nil
+	}
+	return path, nil
+}
+
+// Library is an open connection. A read-only Library accepts no write; the
+// writable one is what the M1 app uses.
+type Library struct {
+	db     *sqlite.DB
+	path   string
+	writes bool
+
+	mu     sync.Mutex
+	rev    uint64
+	rowRev map[string]uint64
+}
+
+// Open opens path read-only and checks its schema version. It never creates
+// the file: a missing library is an error, not a new empty one.
+func Open(ctx context.Context, path string) (*Library, error) {
+	return open(ctx, path, false)
+}
+
+// OpenWritable opens path read-write, checks its schema version and brings a
+// legacy schema up to date by adding missing tables, indexes and nullable
+// columns. It never creates the file and never bumps user_version.
+func OpenWritable(ctx context.Context, path string) (*Library, error) {
+	return open(ctx, path, true)
+}
+
+func open(ctx context.Context, path string, writes bool) (*Library, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("library: open %s: %w", path, err)
+	}
+	db, err := sqlite.Open(ctx, path, sqlite.OpenOptions{ReadOnly: !writes})
+	if err != nil {
+		return nil, fmt.Errorf("library: open %s: %w", path, err)
+	}
+	rows, err := db.Query(ctx, "PRAGMA user_version")
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("library: read user_version: %w", err)
+	}
+	version, ok := schemaVersion(rows)
+	if !ok {
+		db.Close()
+		return nil, fmt.Errorf("library: %s returned no user_version", path)
+	}
+	if version != SchemaVersion {
+		db.Close()
+		return nil, &ErrSchemaVersion{Path: path, Got: version, Want: SchemaVersion}
+	}
+	if writes {
+		if err := ensureSchema(ctx, db); err != nil {
+			db.Close()
+			return nil, err
+		}
+		// Foreign keys are what makes deleting a track clean up its playlist
+		// entries (schema.dart relies on ON DELETE CASCADE).
+		if _, err := db.Execute(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("library: enable foreign keys: %w", err)
+		}
+	}
+	return &Library{db: db, path: path, writes: writes, rowRev: map[string]uint64{}}, nil
+}
+
+func schemaVersion(rows sqlite.Rows) (int, bool) {
+	if len(rows.Values) != 1 || len(rows.Values[0]) != 1 {
+		return 0, false
+	}
+	version, ok := rows.Values[0][0].(int64)
+	return int(version), ok
+}
+
+// Path returns the file this connection reads.
+func (l *Library) Path() string { return l.path }
+
+// Writable reports whether this connection accepts writes.
+func (l *Library) Writable() bool { return l.writes }
+
+// Revision is a query key that changes whenever a write can change what the
+// library shows — inserts, deletes, metadata updates, duration backfills.
+// The Flutter client's old fingerprint only covered length/favourites/latest,
+// so a title/artist/cover change never refreshed the list (audit §2.5). This
+// counter cannot miss such a change: every write path bumps it.
+func (l *Library) Revision() uint64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.rev
+}
+
+// RowRevision is the per-row revision for id: M1's table uses it in the row
+// key, so a metadata-only change rebuilds that row and nothing else.
+func (l *Library) RowRevision(id string) uint64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.rowRev[id]
+}
+
+func (l *Library) bump(ids ...string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.rev++
+	for _, id := range ids {
+		l.rowRev[id]++
+	}
+}
+
+// Tracks returns every track, ordered for display. The pages never call it:
+// they page through TracksPage. It stays for the acceptance aids and for a
+// caller that genuinely needs the whole library in hand.
+func (l *Library) Tracks(ctx context.Context) ([]Track, error) {
+	const query = `
+SELECT id, source_id, title, artist, album, duration,
+       track_number, disc_number, year, genre, bitrate, sample_rate,
+       file_format, file_path_or_url, file_size, last_modified,
+       cover_art_path, cover_art_url, lyrics,
+       is_favorite, date_added, play_count, last_played_at
+FROM tracks
+ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE,
+         disc_number, track_number, title COLLATE NOCASE, id`
+	rows, err := l.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("library: query tracks: %w", err)
+	}
+	tracks := make([]Track, 0, len(rows.Values))
+	for i, value := range rows.Values {
+		track, err := trackFromRow(value)
+		if err != nil {
+			return nil, fmt.Errorf("library: track row %d: %w", i+1, err)
+		}
+		tracks = append(tracks, track)
+	}
+	return tracks, nil
+}
+
+// Track returns one track by id.
+func (l *Library) Track(ctx context.Context, id string) (Track, bool, error) {
+	const query = `
+SELECT id, source_id, title, artist, album, duration,
+       track_number, disc_number, year, genre, bitrate, sample_rate,
+       file_format, file_path_or_url, file_size, last_modified,
+       cover_art_path, cover_art_url, lyrics,
+       is_favorite, date_added, play_count, last_played_at
+FROM tracks WHERE id = ?`
+	rows, err := l.db.Query(ctx, query, id)
+	if err != nil {
+		return Track{}, false, fmt.Errorf("library: query track %s: %w", id, err)
+	}
+	if len(rows.Values) == 0 {
+		return Track{}, false, nil
+	}
+	track, err := trackFromRow(rows.Values[0])
+	if err != nil {
+		return Track{}, false, fmt.Errorf("library: track %s: %w", id, err)
+	}
+	return track, true, nil
+}
+
+func trackFromRow(value []any) (Track, error) {
+	if len(value) != 23 {
+		return Track{}, fmt.Errorf("got %d columns, want 23", len(value))
+	}
+	var track Track
+	var ok bool
+	if track.ID, ok = value[0].(string); !ok {
+		return Track{}, errors.New("id is not text")
+	}
+	if track.SourceID, ok = value[1].(string); !ok {
+		return Track{}, errors.New("source_id is not text")
+	}
+	if track.Title, ok = value[2].(string); !ok {
+		return Track{}, errors.New("title is not text")
+	}
+	if track.Artist, ok = value[3].(string); !ok {
+		return Track{}, errors.New("artist is not text")
+	}
+	if track.Album, ok = value[4].(string); !ok {
+		return Track{}, errors.New("album is not text")
+	}
+	seconds, ok := value[5].(float64)
+	if !ok {
+		return Track{}, errors.New("duration is not a number")
+	}
+	track.Duration = secondsDuration(seconds)
+	track.TrackNumber = intValue(value[6])
+	track.DiscNumber = intValue(value[7])
+	track.Year = intValue(value[8])
+	track.Genre = stringValue(value[9])
+	track.Bitrate = intValue(value[10])
+	track.SampleRate = intValue(value[11])
+	track.FileFormat, _ = value[12].(string)
+	track.FilePath, _ = value[13].(string)
+	track.FileSize = int64Value(value[14])
+	track.LastModified, _ = timeValue(value[15])
+	track.CoverArtPath = stringValue(value[16])
+	track.CoverArtURL = stringValue(value[17])
+	track.Lyrics = stringValue(value[18])
+	track.IsFavorite = intValue(value[19]) != 0
+	track.DateAdded, _ = timeValue(value[20])
+	track.PlayCount = int64Value(value[21])
+	track.LastPlayedAt, _ = timeValue(value[22])
+	return track, nil
+}
+
+// Sources returns every music source, by name.
+func (l *Library) Sources(ctx context.Context) ([]Source, error) {
+	// The remote columns are selected so M3 can build an adapter from a row
+	// without a second query. Their values are ignored by everything else.
+	folderPath := "NULL"
+	hasPath, err := hasColumn(ctx, l.db, "music_sources", "quark_folder_path")
+	if err != nil {
+		return nil, err
+	}
+	if hasPath {
+		folderPath = "quark_folder_path"
+	}
+	query := fmt.Sprintf(`
+SELECT id, name, kind, local_folder_path,
+       webdav_url, webdav_username, webdav_root_path,
+       quark_folder_fid, quark_account_name,
+       sync_status, last_synced_at, track_count, %s
+FROM music_sources ORDER BY name COLLATE NOCASE, id`, folderPath)
+	rows, err := l.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("library: query sources: %w", err)
+	}
+	out := make([]Source, 0, len(rows.Values))
+	for _, value := range rows.Values {
+		if len(value) != 13 {
+			return nil, fmt.Errorf("library: source row has %d columns, want 13", len(value))
+		}
+		source := Source{
+			ID:               stringValue(value[0]),
+			Name:             stringValue(value[1]),
+			Kind:             stringValue(value[2]),
+			LocalFolderPath:  stringValue(value[3]),
+			WebDAVURL:        stringValue(value[4]),
+			WebDAVUsername:   stringValue(value[5]),
+			WebDAVRootPath:   stringValue(value[6]),
+			QuarkFolderFID:   stringValue(value[7]),
+			QuarkFolderPath:  stringValue(value[12]),
+			QuarkAccountName: stringValue(value[8]),
+			SyncStatus:       stringValue(value[9]),
+			TrackCount:       int64Value(value[11]),
+		}
+		source.LastSyncedAt, _ = timeValue(value[10])
+		out = append(out, source)
+	}
+	return out, nil
+}
+
+// UpsertSource inserts or updates a source row of any kind, including the
+// remote columns WebDAV and Quark need. It is additive: UpsertLocalSource keeps
+// its local-only behaviour and its SQL untouched, so the existing local path is
+// unaffected. M3 needs this single write entry point because a remote source
+// cannot be created without storing its URL / account / folder id; see the M3
+// record's "需数据层支持" list — if the data layer takes sources over, it should
+// keep this function's semantics.
+func (l *Library) UpsertSource(ctx context.Context, source Source) error {
+	if !l.writes {
+		return errors.New("library: connection is read-only")
+	}
+	if strings.TrimSpace(source.ID) == "" {
+		return errors.New("library: source needs an id")
+	}
+	if strings.TrimSpace(source.Name) == "" {
+		source.Name = source.ID
+	}
+	if strings.TrimSpace(source.Kind) == "" {
+		return errors.New("library: source needs a kind")
+	}
+	if source.SyncStatus == "" {
+		source.SyncStatus = "未同步"
+	}
+	_, err := l.db.Execute(ctx,
+		`INSERT INTO music_sources
+		   (id, name, kind, local_folder_path,
+		    webdav_url, webdav_username, webdav_root_path,
+		    quark_folder_fid, quark_account_name,
+		    sync_status, last_synced_at, track_count, quark_folder_path)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		   name = excluded.name,
+		   kind = excluded.kind,
+		   local_folder_path = excluded.local_folder_path,
+		   webdav_url = excluded.webdav_url,
+		   webdav_username = excluded.webdav_username,
+		   webdav_root_path = excluded.webdav_root_path,
+		   quark_folder_fid = excluded.quark_folder_fid,
+		   quark_folder_path = excluded.quark_folder_path,
+		   quark_account_name = excluded.quark_account_name,
+		   sync_status = excluded.sync_status,
+		   last_synced_at = COALESCE(excluded.last_synced_at, music_sources.last_synced_at),
+		   track_count = excluded.track_count`,
+		source.ID, source.Name, source.Kind, nullableString(source.LocalFolderPath),
+		nullableString(source.WebDAVURL), nullableString(source.WebDAVUsername),
+		nullableString(source.WebDAVRootPath), nullableString(source.QuarkFolderFID),
+		nullableString(source.QuarkAccountName), source.SyncStatus,
+		nullableTime(source.LastSyncedAt), source.TrackCount, nullableString(source.QuarkFolderPath))
+	if err != nil {
+		return fmt.Errorf("library: upsert source %s: %w", source.ID, err)
+	}
+	l.bump()
+	return nil
+}
+
+// SourceByFolder finds the local source that already owns folder, so picking
+// the same directory again reuses its source id and its tracks instead of
+// creating a second source with duplicate rows.
+func (l *Library) SourceByFolder(ctx context.Context, folder string) (Source, bool, error) {
+	sources, err := l.Sources(ctx)
+	if err != nil {
+		return Source{}, false, err
+	}
+	for _, source := range sources {
+		if source.Kind == "local" && sameFolder(source.LocalFolderPath, folder) {
+			return source, true, nil
+		}
+	}
+	return Source{}, false, nil
+}
+
+// sameFolder compares two absolute paths leniently: trailing slashes,
+// a macOS "/private" prefix (NSOpenPanel returns either form),
+// case, and a Windows \\?\ prefix are noise.
+func sameFolder(a, b string) bool {
+	clean := func(p string) string {
+		p = filepath.Clean(strings.TrimSpace(p))
+		if runtime.GOOS == "darwin" {
+			p = strings.TrimPrefix(p, "/private")
+		}
+		if runtime.GOOS == "windows" {
+			p = strings.TrimPrefix(p, `\\?\`)
+			p = strings.ToLower(p)
+		}
+		return p
+	}
+	return a != "" && clean(a) == clean(b)
+}
+
+// UpsertLocalSource inserts a local source, or updates its name, folder and
+// sync status when the id already exists.
+func (l *Library) UpsertLocalSource(ctx context.Context, source Source) error {
+	if !l.writes {
+		return errors.New("library: connection is read-only")
+	}
+	if source.LastSyncedAt.IsZero() {
+		source.LastSyncedAt = time.Now()
+	}
+	_, err := l.db.Execute(ctx,
+		`INSERT INTO music_sources
+		   (id, name, kind, local_folder_path, sync_status, last_synced_at, track_count)
+		 VALUES (?, ?, 'local', ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		   name = excluded.name,
+		   kind = 'local',
+		   local_folder_path = excluded.local_folder_path,
+		   sync_status = excluded.sync_status,
+		   last_synced_at = excluded.last_synced_at,
+		   track_count = excluded.track_count`,
+		source.ID, source.Name, source.LocalFolderPath, source.SyncStatus,
+		formatTime(source.LastSyncedAt), source.TrackCount)
+	if err != nil {
+		return fmt.Errorf("library: upsert source %s: %w", source.ID, err)
+	}
+	l.bump()
+	return nil
+}
+
+// UpdateSourceSync records the outcome of a scan on its source.
+func (l *Library) UpdateSourceSync(ctx context.Context, id, status string, syncedAt time.Time, trackCount int64) error {
+	if !l.writes {
+		return errors.New("library: connection is read-only")
+	}
+	_, err := l.db.Execute(ctx,
+		`UPDATE music_sources SET sync_status = ?, last_synced_at = ?, track_count = ? WHERE id = ?`,
+		status, formatTime(syncedAt), trackCount, id)
+	if err != nil {
+		return fmt.Errorf("library: update source %s: %w", id, err)
+	}
+	l.bump()
+	return nil
+}
+
+// CountSourceTracks is the real row count for a source, the number the scan
+// acceptance compares with the number of files on disk.
+func (l *Library) CountSourceTracks(ctx context.Context, sourceID string) (int64, error) {
+	rows, err := l.db.Query(ctx, `SELECT COUNT(*) FROM tracks WHERE source_id = ?`, sourceID)
+	if err != nil {
+		return 0, fmt.Errorf("library: count source %s: %w", sourceID, err)
+	}
+	if len(rows.Values) != 1 || len(rows.Values[0]) != 1 {
+		return 0, errors.New("library: COUNT(*) returned no row")
+	}
+	return int64Value(rows.Values[0][0]), nil
+}
+
+// Close closes the connection. It is safe to call twice.
+func (l *Library) Close() error { return l.db.Close() }
+
+// formatTime writes the drift-compatible text timestamp.
+func formatTime(t time.Time) string { return t.UTC().Format(TimeLayout) }
+
+func secondsDuration(seconds float64) time.Duration {
+	return time.Duration(seconds * float64(time.Second))
+}
+
+func stringValue(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func intValue(v any) int {
+	return int(int64Value(v))
+}
+
+func int64Value(v any) int64 {
+	switch n := v.(type) {
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case float64:
+		return int64(n)
+	}
+	return 0
+}
+
+func timeValue(v any) (time.Time, bool) {
+	text, ok := v.(string)
+	if !ok || text == "" {
+		return time.Time{}, false
+	}
+	for _, layout := range []string{TimeLayout, "2006-01-02T15:04:05.000Z", time.RFC3339Nano, time.RFC3339} {
+		if t, err := time.Parse(layout, text); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}

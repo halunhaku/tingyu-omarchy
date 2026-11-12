@@ -1,0 +1,49 @@
+# macOS Finder
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Xcode
+build/
+DerivedData/
+*.moved-builder
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Xcode User Data & State
+*.xcuserstate
+project.xcworkspace
+xcuserdata/
+
+# Backup & temporary files
+*.bak
+*.swp
+*~
+
+# Local build artifacts and agent notes
+dist/
+.grok/
+
+# spike：现场生成的测试媒体与构建产物
+spike/testdata/media/*.flac
+spike/testdata/media/*.png
+spike/build/
+spike/**/spike-audio
+spike/**/spike-session
+spike/**/spike-app
+spike/evidence/**/*.wav
+
+# Local page previews rendered from a personal music library
+design/icon-proposals/cleanup-preview/
+
+# Local credentials and personal library databases
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*

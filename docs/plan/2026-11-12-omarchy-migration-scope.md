@@ -112,6 +112,7 @@
 - 主题跟随：读 `~/.local/state/omarchy/current/theme/colors.toml` 的 `accent`，并监听主题切换（符号链接会被整目录替换，需要重新挂载监听）。
 - 圆角跟随 Hyprland `decoration:rounding`（`hyprctl getoption decoration:rounding`），默认 0 时窗口与内部面板用直角。
 - 窗口装饰：Hyprland 无服务端装饰，确认自绘标题栏/边框与 Omarchy 其他应用一致；`app id` 与 `.desktop` 名一致，窗口规则才能命中。
+- 菜单栏：Linux 上 GTK 会把应用菜单画在窗口里（macOS 风格「听屿 / Edit / 播放 / 前往 / Window」），Omarchy 的应用从不这么展示。改为 `AutoHideMenuBar`：默认不显示，`Alt`/`F10` 仍能调出；同样的命令都在 `Ctrl+K` 命令面板里。
 - 快捷键表进 README，与 Omarchy「键盘优先」的习惯一致。
 - 验收：切换主题与语言后重启观感正确；窗口无闪烁、无重复标题栏。
 

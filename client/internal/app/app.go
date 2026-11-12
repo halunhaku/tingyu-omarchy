@@ -354,7 +354,10 @@ func (a *application) showWindow() {
 		Height:    shell.DefaultHeight,
 		MinWidth:  shell.MinimumWidth,
 		MinHeight: shell.MinimumHeight,
-		Content:   ui.View(a.model.View),
+		// On Linux the menu bar is drawn in the window; Omarchy's apps do not
+		// show one, so it waits behind Alt (see menubar_linux.go).
+		AutoHideMenuBar: menuBarAutoHides(),
+		Content:         ui.View(a.model.View),
 	})
 	a.win = win
 	a.logf("window: %dx%d, minimum %dx%d", shell.DefaultWidth, shell.DefaultHeight, shell.MinimumWidth, shell.MinimumHeight)

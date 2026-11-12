@@ -3,17 +3,17 @@
 // Command w0accept is the Windows W0 technical check. It verifies the native
 // pieces the client depends on, on the machine that runs it:
 //
-//	1. SQLite: transaction commit, failed-transaction rollback, read-only
-//	   write rejection, and close/reopen consistency.
-//	2. library: first-run creation, a write, a read-only reopen that refuses
-//	   writes, a writable reopen that still sees the data, all under a
-//	   directory whose name has Chinese characters and a space.
-//	3. data dir: the real %AppData% default and the TINGYU_DATA_DIR override.
-//	4. libmpv diagnostics: missing file, wrong-architecture DLL, DLL without
-//	   the mpv symbols, and a bare relative name are rejected with a cause.
-//	5. libmpv playback: the x64 DLL actually loaded, its version, a generated
-//	   WAV played to the end through WASAPI, and the module unloaded after
-//	   close.
+//  1. SQLite: transaction commit, failed-transaction rollback, read-only
+//     write rejection, and close/reopen consistency.
+//  2. library: first-run creation, a write, a read-only reopen that refuses
+//     writes, a writable reopen that still sees the data, all under a
+//     directory whose name has Chinese characters and a space.
+//  3. data dir: the real %AppData% default and the TINGYU_DATA_DIR override.
+//  4. libmpv diagnostics: missing file, wrong-architecture DLL, DLL without
+//     the mpv symbols, and a bare relative name are rejected with a cause.
+//  5. libmpv playback: the x64 DLL actually loaded, its version, a generated
+//     WAV played to the end through WASAPI, and the module unloaded after
+//     close.
 //
 // It prints one JSON report and exits non-zero when a check fails. It is a
 // verification harness, not a test of the UI: the window is exercised by
@@ -528,28 +528,28 @@ func copyAndPatchMachine(source, dest string, machine uint16) error {
 // --- libmpv playback ------------------------------------------------
 
 type mpvExtra struct {
-	Library          string   `json:"library"`
-	ModulePath       string   `json:"modulePath"`
-	SHA256           string   `json:"sha256"`
-	Machine          string   `json:"machine"`
-	ClientAPIMajor   int      `json:"clientApiMajor"`
-	ClientAPIMinor   int      `json:"clientApiMinor"`
-	MPVVersion       string   `json:"mpvVersion"`
-	FFmpegVersion    string   `json:"ffmpegVersion"`
-	AudioOutput      string   `json:"audioOutput"`
-	License          string   `json:"license"`
-	Source           string   `json:"source"`
-	DecodedWAV       string   `json:"decodedWav"`
-	PositionAfter    string   `json:"positionAfter"`
-	PositionMax      string   `json:"positionMax"`
-	Duration         string   `json:"duration"`
-	ReachedEnd       bool     `json:"reachedEnd"`
-	AOInits          int      `json:"aoInits"`
-	Underruns        int      `json:"underruns"`
-	FilesLoaded      int      `json:"filesLoaded"`
-	PlaybackObserved bool     `json:"playbackObserved"`
-	ModuleUnloaded   bool     `json:"moduleUnloaded"`
-	Goroutines       int      `json:"goroutinesAfterClose"`
+	Library          string `json:"library"`
+	ModulePath       string `json:"modulePath"`
+	SHA256           string `json:"sha256"`
+	Machine          string `json:"machine"`
+	ClientAPIMajor   int    `json:"clientApiMajor"`
+	ClientAPIMinor   int    `json:"clientApiMinor"`
+	MPVVersion       string `json:"mpvVersion"`
+	FFmpegVersion    string `json:"ffmpegVersion"`
+	AudioOutput      string `json:"audioOutput"`
+	License          string `json:"license"`
+	Source           string `json:"source"`
+	DecodedWAV       string `json:"decodedWav"`
+	PositionAfter    string `json:"positionAfter"`
+	PositionMax      string `json:"positionMax"`
+	Duration         string `json:"duration"`
+	ReachedEnd       bool   `json:"reachedEnd"`
+	AOInits          int    `json:"aoInits"`
+	Underruns        int    `json:"underruns"`
+	FilesLoaded      int    `json:"filesLoaded"`
+	PlaybackObserved bool   `json:"playbackObserved"`
+	ModuleUnloaded   bool   `json:"moduleUnloaded"`
+	Goroutines       int    `json:"goroutinesAfterClose"`
 }
 
 func checkMPVPlayback(dir, libPath, ao, device string, verbose bool) (string, *mpvExtra, error) {

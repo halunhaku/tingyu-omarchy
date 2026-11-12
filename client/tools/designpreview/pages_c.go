@@ -621,7 +621,7 @@ func (s *scene) cSettings() {
 					ui.Box(s.c).Height(14)
 					ui.Row(s.c).Gap(8).Children(func() {
 						s.button("立即备份", false, 28)
-						s.button("在访达中显示", false, 28)
+						s.button("显示所在文件夹", false, 28)
 					})
 					ui.Box(s.c).Height(14)
 					s.t("numSm", "只读模式打开时，设置不会写盘；本次以读写打开。", s.col(s.p.Text3))

@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/egoist/mygo/ui"
 
@@ -298,13 +299,13 @@ func ErrorCard(c *ui.Context, d Design, title, message string, actions func()) {
 
 // ErrorState is a page-level failure (the library could not be opened): the
 // error card, centred, with the two actions the page really has — show the
-// directory in Finder, or copy its path.
+// directory in the file manager, or copy its path.
 func ErrorState(c *ui.Context, d Design, title, message, path string) {
 	ui.Column(c).Grow(1).Justify(ui.Center).AlignItems(ui.Center).Gap(tokens.Space16).Children(func() {
 		ErrorCard(c, d, title, message, func() {
 			if dir := parentDir(path); dir != "" {
-				if b := d.Button(c, "在访达中打开"); b.Clicked() {
-					c.OpenURL("file://" + dir)
+				if b := d.Button(c, "打开所在文件夹"); b.Clicked() {
+					c.OpenURL((&url.URL{Scheme: "file", Path: dir}).String())
 				}
 			}
 			if b := d.PrimaryButton(c, "复制路径"); b.Clicked() {

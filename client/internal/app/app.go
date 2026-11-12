@@ -287,7 +287,10 @@ func (a *application) prepare() error {
 }
 
 func (a *application) newEngine() (*mpv.Player, error) {
-	libPath := mpv.LibraryPath()
+	libPath, err := mpv.ResolveLibrary()
+	if err != nil {
+		return nil, err
+	}
 	if libPath == "" {
 		return nil, errors.New("找不到 libmpv（设置 MPV_LIB 或用 scripts/bundle.sh 出包）")
 	}
@@ -662,7 +665,7 @@ func (a *application) RevealInFinder(track library.Track) {
 		return
 	}
 	if err := revealPath(track.FilePath); err != nil {
-		a.setStatus("无法在访达中显示：" + err.Error())
+		a.setStatus("无法显示所在文件夹：" + err.Error())
 		return
 	}
 	a.logf("finder: reveal %s", track.FilePath)
@@ -785,6 +788,10 @@ func (a *application) chooseDirectory() {
 		return
 	}
 	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+		// The parent makes the chooser a transient, modal dialog. Without it
+		// GTK puts the window wherever the compositor wants and the main
+		// window stays clickable while the chooser is open.
+		Parent:      a.win,
 		Title:       "选择音乐目录",
 		ButtonLabel: "选择",
 		Message:     "扫描这个目录里的音乐并加入曲库",

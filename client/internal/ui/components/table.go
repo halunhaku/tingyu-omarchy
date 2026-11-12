@@ -380,7 +380,7 @@ func trackMenu(m *ui.Menu, state *model.State, track library.Track, playlistID s
 		state.OpenLyricSearch(track)
 	}
 	m.Separator()
-	reveal := m.Item("在访达中显示")
+	reveal := m.Item("显示所在文件夹")
 	if track.FilePath == "" || track.FilePath[0] != '/' {
 		reveal.Disabled(true)
 	}

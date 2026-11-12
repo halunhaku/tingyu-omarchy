@@ -17,7 +17,7 @@ func assertSongMenu(t *testing.T, tt *ui.Tester, title string) {
 		t.Fatalf("right-click %q: %v (texts %q)", title, err, tt.Texts())
 	}
 	menu := tt.Menu()
-	for _, want := range []string{"播放", "收藏", "匹配元数据…", "在访达中显示"} {
+	for _, want := range []string{"播放", "收藏", "匹配元数据…", "显示所在文件夹"} {
 		found := false
 		for _, item := range menu {
 			if item == want {

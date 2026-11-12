@@ -168,7 +168,7 @@ func (m *Model) View(c *ui.Context) {
 	s := m.state
 	s.Tick(c.Now())
 	dark := s.Settings().Dark(s.SystemDark(c.Theme().Dark))
-	d := components.Resolve(c, dark, s.Settings().Compact(), s.Desktop())
+	d := components.Resolve(c, dark, s.Settings().Compact(), s.Appearance())
 	handleShortcuts(c, s)
 
 	if s.ShouldOnboard() {

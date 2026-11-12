@@ -39,6 +39,9 @@ func LoadSettings(dir string) (Settings, bool, error) {
 	if tint, ok := raw["coverTint"].(bool); ok {
 		settings.CoverTint = tint
 	}
+	if follow, ok := raw["followDesktop"].(bool); ok {
+		settings.FollowDesktop = follow
+	}
 	return settings, false, nil
 }
 
@@ -49,9 +52,10 @@ func SaveSettings(dir string, settings Settings) error {
 		return err
 	}
 	payload := map[string]any{
-		"themeMode": settings.ThemeMode,
-		"density":   settings.Density,
-		"coverTint": settings.CoverTint,
+		"themeMode":     settings.ThemeMode,
+		"density":       settings.Density,
+		"coverTint":     settings.CoverTint,
+		"followDesktop": settings.FollowDesktop,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {

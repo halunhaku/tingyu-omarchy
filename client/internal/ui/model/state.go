@@ -82,18 +82,23 @@ type Live interface {
 	RowRevision(id string) uint64
 }
 
-// Settings are the three appearance preferences of settings.json. The keys and
-// values are exactly the Flutter client's (data/settings_store.dart), so the
-// two clients share one file.
+// Settings are the appearance preferences of settings.json. The keys and
+// values are the Flutter client's (data/settings_store.dart) so the two clients
+// share one file; FollowDesktop is this client's own key, and a file without it
+// reads as the default, on.
 type Settings struct {
 	ThemeMode string // system / light / dark
 	Density   string // comfortable / compact
 	CoverTint bool
+	// FollowDesktop takes the accent, the brightness and the corners from the
+	// desktop (Omarchy + Hyprland on Linux). Off returns to the design's own
+	// palette and radii, which is the look every other platform has.
+	FollowDesktop bool
 }
 
 // DefaultSettings is AppPreferences.defaults.
 func DefaultSettings() Settings {
-	return Settings{ThemeMode: "system", Density: "comfortable", CoverTint: true}
+	return Settings{ThemeMode: "system", Density: "comfortable", CoverTint: true, FollowDesktop: true}
 }
 
 // Dark resolves the theme mode against the system's appearance.
@@ -520,12 +525,22 @@ func (s *State) SetDesktop(d tokens.Desktop) { s.desktop = d }
 // be read, which keeps the design's accent and corners).
 func (s *State) Desktop() tokens.Desktop { return s.desktop }
 
+// Appearance is what the frame draws with: the desktop's reading while
+// 跟随桌面主题 is on, and the zero value (the design's own accent and corners)
+// once the user turns it off.
+func (s *State) Appearance() tokens.Desktop {
+	if !s.settings.FollowDesktop {
+		return tokens.Desktop{}
+	}
+	return s.desktop
+}
+
 // SystemDark is the brightness that stands for "the system": Omarchy's own
 // mode when the desktop reports one, and the window's theme otherwise. The
 // settings still overrule it when the user picks 浅色 or 深色.
 func (s *State) SystemDark(windowDark bool) bool {
-	if s.desktop.Theme != "" && s.desktop.Mode != "" {
-		return s.desktop.Dark()
+	if d := s.Appearance(); d.Theme != "" && d.Mode != "" {
+		return d.Dark()
 	}
 	return windowDark
 }

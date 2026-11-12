@@ -375,12 +375,17 @@ func TestSettingsTolerantReadAndAtomicWrite(t *testing.T) {
 	if settings.ThemeMode != "system" || settings.Density != "compact" || !settings.CoverTint {
 		t.Fatalf("tolerant parse = %+v", settings)
 	}
+	// A file from before 跟随桌面主题 existed keeps the default, which is on.
+	if !settings.FollowDesktop {
+		t.Fatalf("a file without followDesktop disabled it: %+v", settings)
+	}
 	settings.ThemeMode = "dark"
+	settings.FollowDesktop = false
 	if err := SaveSettings(dir, settings); err != nil {
 		t.Fatal(err)
 	}
 	again, corrupt, err := LoadSettings(dir)
-	if err != nil || corrupt || again.ThemeMode != "dark" {
+	if err != nil || corrupt || again.ThemeMode != "dark" || again.FollowDesktop {
 		t.Fatalf("saved = %+v corrupt=%v err=%v", again, corrupt, err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{`), 0o644); err != nil {

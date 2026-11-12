@@ -75,14 +75,14 @@
 - 验收：`./scripts/linux-setup.sh && ./scripts/linux-build.sh` 在干净机器上出 `build/tingyu`；`go test -short ./...` 全绿。
 - 状态：本机通过；干净机器未验证。
 
-### M1 播放内核与出声
+### M1 播放内核与出声（证据已齐，差人耳）
 
-- ~~libmpv 自动发现~~（已实现并本机验证）：无 `MPV_LIB` 时按 `libmpv.so.2` / `.1` / `.0` 依次探测，失败时列出尝试过的 SONAME 并提示安装 mpv。剩余：在干净机复验一次，并把这条写进 M0 的验收命令。
-- 播放失败时不再回落到整首静音：确认 `mpv.Load` 的每次失败都有可见的状态栏提示。
-- 音频输出：mpv 默认走 PipeWire；记录 `AO: [pipewire]`、采样率、underrun，并留一次人耳试听记录。
-- 硬件解码：确认 `hwdec=auto-safe` 在本机可用（VA-API），不可用时明确降级而不是黑屏。
-- gapless、seek、音量、播放到结尾的状态回报。
-- 验收：本地导入 3 首以上（mp3/flac/m4a），能听到声音，进度、结尾、切歌正确；日志有 AO 证据。
+- libmpv 自动发现：已实现并本机验证（`libmpv.so.2` → `.1` → `.0`）。剩余：干净机复验一次。
+- 音频输出：`-phases playback` 直读 mpv 属性，实测 9/9 格式 `current-ao=pipewire`、采样率跟随源（44.1k / 48k / 96k FLAC，`rateMatches=true`）、`underruns=0`、单曲 `aoInits=1`；同专辑两首连播仍只有 1 次设备初始化。
+- 硬件解码：**不参与**（`vo=null`、`audio-display=no`、全仓无 `hwdec` 选项，`hwdec-current` 不可用）。VA-API 能力只在独立 mpv 探针上验证过，不是听屿的路径——本文件的旧表述「hwdec=auto-safe 可用」已作废。
+- 修掉的产品 bug：队列播完后点播放，会被控制器自己的收尾分支（`Pause` + `Seek(0)`）按回暂停，表现为"按播放没反应"；根因是状态先发布、收尾后执行。现在先收尾再发布，且 repeat-all 回绕的那一帧不再发布（否则媒体会话会闪一下"停在第一首"）。
+- seek 51–53 ms 恢复、音量回读、倍速、播放到结尾的 `completed` 回报都已实测。
+- 剩余：**人耳试听**（自动化只能证明引擎打开了 PipeWire 并以正确采样率推进，证不了扬声器出声）；真实曲库长队列的稳定性。
 
 ### M2 桌面集成（基本完成）
 

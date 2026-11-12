@@ -558,7 +558,13 @@ func (c *Controller) onSnapshot(snapshot mpv.Snapshot) {
 	// branch milliseconds later: the file loads, stays paused at zero and the
 	// button looks dead. Pressing play after this returns still works, because
 	// the published state is completed and Play() restarts the entry.
-	c.handleCompletion(snapshot, currentIndex, itemCount, generation)
+	if c.handleCompletion(snapshot, currentIndex, itemCount, generation) {
+		// The queue wrapped: the engine is already loading its first entry and
+		// will publish that. Publishing this snapshot would carry the finished
+		// entry with the wrapped index, which reads as "stopped at the first
+		// track" to the media session and the window.
+		return
+	}
 
 	c.mu.Lock()
 	c.update = Update{
@@ -623,24 +629,27 @@ func (c *Controller) recordDuration(snapshot mpv.Snapshot, track *library.Track,
 	}(track.ID, snapshot.Duration)
 }
 
-func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount int, generation uint64) {
+// handleCompletion acts on the end of a queue entry and reports whether it
+// wrapped the queue to its first entry, which the caller must not publish as
+// the finished state.
+func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount int, generation uint64) bool {
 	if snapshot.Processing != mpv.Completed {
 		c.mu.Lock()
 		c.completionDone = false
 		c.mu.Unlock()
-		return
+		return false
 	}
 	c.mu.Lock()
 	if c.completionDone {
 		c.mu.Unlock()
-		return
+		return false
 	}
 	c.completionDone = true
 	repeat := c.repeat
 	atEnd := itemCount > 0 && index >= itemCount-1
 	c.mu.Unlock()
 	if generation != c.generation {
-		return
+		return false
 	}
 
 	switch repeat {
@@ -658,6 +667,7 @@ func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount in
 			c.mu.Lock()
 			c.currentIndex = 0
 			c.mu.Unlock()
+			return true
 		}
 	case RepeatOff:
 		// Pause and rewind: play() on a completed engine is a no-op, and the
@@ -665,6 +675,7 @@ func (c *Controller) handleCompletion(snapshot mpv.Snapshot, index, itemCount in
 		_ = c.engine.Pause()
 		_ = c.engine.Seek(0)
 	}
+	return false
 }
 
 // Play resumes, restarting a finished queue when needed.

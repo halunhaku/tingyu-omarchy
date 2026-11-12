@@ -127,12 +127,21 @@ func appearanceSettings(c *ui.Context, d components.Design, s *model.State) {
 		case "dark":
 			mode = 2
 		}
-		settingsRow(c, d, "主题模式", "跟随系统时，随 macOS 的外观自动切换。", func() {
+		settingsRow(c, d, "主题模式", "跟随系统时明暗取自 Omarchy 主题；强调色与圆角也跟随桌面，其它桌面用自带配色。", func() {
 			m := mode
 			seg := ui.Segmented(c, &m, "跟随系统", "浅色", "深色").Radius(d.Radius(tokens.RadiusSM)).FontSize(12)
 			if seg.Changed() {
 				next := settings
 				next.ThemeMode = [3]string{"system", "light", "dark"}[m]
+				s.SetSettings(next)
+			}
+		}, true)
+		follow := settings.FollowDesktop
+		settingsRow(c, d, "跟随桌面主题", "关闭后回到设计自带的配色与圆角，不再读取 Omarchy 与 Hyprland。", func() {
+			sw := ui.Switch(c, &follow)
+			if sw.Changed() {
+				next := settings
+				next.FollowDesktop = follow
 				s.SetSettings(next)
 			}
 		}, true)

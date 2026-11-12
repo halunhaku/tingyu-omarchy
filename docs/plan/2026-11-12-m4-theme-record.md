@@ -20,6 +20,7 @@
 | 7 | 纯标准库、不引入 fsnotify | **通过** | 读取器只用 `os`/`path`/`strconv`/`encoding/json`/`os/exec`/`context`/`time` |
 | 8 | 构建、测试、交叉编译 | **通过** | `go build ./...`、`go test -short ./...`、`GOOS=windows`/`GOOS=darwin go build ./...`、`go vet`、`gofmt -l` 全过（§2.4） |
 | 9 | 不留环境改动 | **通过** | `theme.name` 回到 `tokyo-night`，`getoption` 回到 0；还原后帧与切换前逐字节相同（md5 `e49583e7…`） |
+| 10 | 设置页说真话 + 「跟随桌面主题」开关 | **通过（追加，见 §5）** | 文案改为 Omarchy/Hyprland 口径；开关默认开，关掉后回到设计色与圆角 |
 
 一句话：**accent、明暗、圆角三项都从桌面读，启动时读一次、之后 2 秒一轮，切换与还原都当场验证过；`~/.config` 与 Omarchy 状态没有留下任何改动。**
 
@@ -192,6 +193,38 @@ e49583e79f8c6ff41fdabcb3da89b279  m4-rounding-0-restored.png
 | 圆角只试了 0 与 6 | 未逐一试 1–7 与 >8 的像素效果；比例公式本身有单测（`TestCornersFollowTheCompositor`） |
 | 其他主题 | 只试了 tokyo-night 与 catppuccin-latte 两套；其余主题的 `mode`/`accent` 组合未逐一截图 |
 | macOS / Windows 运行时 | 只做了交叉编译；`Read()` 在两个平台恒为零值，行为应与改动前一致，但没有真机跑过 |
-| 轮询开销 | 2 s 一次，两个小文件 + 一次 `hyprctl` 进程；未测 CPU/唤醒次数，量级应为可忽略 |
+| 轮询开销 | **已实测（§4.1）**：一次约 2.7 ms CPU（客户端 0.27 + `hyprctl` 2.4），每天 43,200 次 `hyprctl`、约 115 s CPU ≈ 单核 0.13%；整机空转对照看不出 |
 | accent 的影响面 | 只到 accent 族与选中态；舞台的封面取色、侧栏封面氛围仍来自封面本身，不随桌面 accent 变化（有意为之，属封面氛围而不是主题色） |
 | 高斯模糊 / 窗口描边 | compositor 侧的窗口圆角与模糊是 Hyprland 的事，本笔不接管；客户端只改自绘内容 |
+
+### 4.1 轮询开销实测（2026-11-12）
+
+方法（都在本机，跑完即删临时测试，不进仓库）：
+
+1. **客户端自己**：临时测试用 `getrusage(RUSAGE_SELF)` 夹住 200 次 `tokens.Read()`。
+2. **`hyprctl` 子进程**：`time -p` 跑 50 次 `hyprctl -j getoption decoration:rounding`，取 user+sys（子进程 CPU 不计入客户端自己的 rusage，只能单独量）。
+3. **整机空转对照**：临时数据目录起应用，用 `/proc/<pid>/stat` 的 `utime+stime` 差值比「轮询开」与「轮询关」两轮（60 s 与 120 s 各一对）。关掉的方式是 `XDG_STATE_HOME` 指向空目录、`PATH` 里放一个立即退出的 `hyprctl` 桩：`Read()` 两项都没读到，poller 因此不启动（日志 `desktop: theme none (unstated), accent design, rounding unstated` 可以确认）。
+
+| 项 | 实测 |
+|---|---|
+| 一次 `Read()`（客户端自己的 CPU） | **0.27 ms**（200 次共 53 ms：user 34 ms + sys 20 ms），200 次墙钟 0.48 s |
+| 一次 `hyprctl` 子进程 | **2.4 ms CPU**（50 次共 0.12 s：user 0.06 + sys 0.06），墙钟与 CPU 同量级 |
+| 一次轮询合计 | ≈ **2.7 ms CPU**，墙钟同样 ≈ 2.4 ms（两边重叠，不是相加） |
+| 每天 `hyprctl` 次数 | **43,200**（2 s 一次；按客户端连续开一天算） |
+| 每天 CPU | 客户端 11.5 s + `hyprctl` 104 s ≈ **115 s ≈ 单核 0.13%**（20 核机器上 0.007%） |
+| 整机空转对照 | 60 s：开 173 ticks / 关 158 ticks；120 s：321 / 306。差值都是 15 ticks（≈ 0.25% 单核），与帧循环本身的抖动同量级、两轮不变，说明轮询在进程层面量不出来 |
+
+结论：开销可以忽略，且主要花在 `hyprctl` 这个短命子进程上，不在客户端里；所以设置里只做功能开关（§5），没有为省 CPU 再加一个「降低轮询频率」。
+
+---
+
+## 5. 同日追加：设置页文案与「跟随桌面主题」
+
+| 项 | 内容 |
+|---|---|
+| 文案 | 外观 → 主题模式的说明从「跟随系统时，随 macOS 的外观自动切换」改为「跟随系统时明暗取自 Omarchy 主题；强调色与圆角也跟随桌面，其它桌面用自带配色。」 |
+| 开关 | 新增「跟随桌面主题」（默认开，`settings.json` 的 `followDesktop`）。关掉后 `State.Appearance()` 返回零值：强调色、明暗、圆角一起回到设计自带的值，等同于非 Omarchy 平台 |
+| 兼容 | `followDesktop` 是本客户端新增的键；老 `settings.json` 没有它时按默认（开）读。Flutter 客户端读到不认识的键会怎样没有验证——最坏是那边保存设置时丢掉这个键，本客户端回到默认（开） |
+| 测试 | `TestSettingsTolerantReadAndAtomicWrite`（缺键默认开 + 关掉后持久化）、`TestSystemDarkFollowsOmarchy`（关掉后明暗不再跟桌面、`Appearance()` 归零）、`TestSettingsTabsReachEverySectionAndResetAppearance`（外观区文本清单加入新行） |
+| 中英 | 客户端这一页只有中文文案（仓库里没有英文 UI 串），所以只改一处，没有新增英文；`tools/designpreview` 里的同句是设计稿复刻，未改 |
+| 截图 | [`m4-settings-follow-desktop-on.png`](../screenshots/omarchy/m4-settings-follow-desktop-on.png)（开：强调色是 Omarchy 的 `#7aa2f7`，圆角 0 时为直角）与 [`m4-settings-follow-desktop-off.png`](../screenshots/omarchy/m4-settings-follow-desktop-off.png)（关：回到设计朱红 `#F26D7E` 与设计圆角）。关的那张是先写 `settings.json` 的 `followDesktop:false` 再启动——验证的是「读设置 → 回到设计」这条真实路径；设置页开关本身的点击没在截图里驱动（本机没有可用的指针注入工具） |

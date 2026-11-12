@@ -230,7 +230,7 @@ func TestSettingsTabsReachEverySectionAndResetAppearance(t *testing.T) {
 	frame(tt)
 	for _, want := range []string{
 		"外观", "播放", "音乐库", "元数据", "来源", "数据", "关于",
-		"主题模式", "界面密度", "封面动态取色", "恢复默认外观",
+		"主题模式", "跟随桌面主题", "界面密度", "封面动态取色", "恢复默认外观",
 	} {
 		if !tt.HasText(want) {
 			t.Errorf("settings lacks %q; texts %q", want, tt.Texts())

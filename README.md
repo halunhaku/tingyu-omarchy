@@ -2,7 +2,7 @@
 
 基于 [halunhaku/tingyu](https://github.com/halunhaku/tingyu) 的独立 Omarchy（Linux）版开发仓库。沿用 Go、MyGo 和 libmpv 的客户端，界面与 Windows 版同源。Windows 版说明见 [README-windows.md](README-windows.md)，macOS 原版见 [README-macos.md](README-macos.md)。
 
-当前为开发预览版：构建、窗口、曲库、播放内核、MPRIS、Omarchy 主题跟随与本地安装都已在本机跑通，**出声证据、云盘与分发发布尚未验收**。
+当前为开发预览版：构建、窗口、曲库、播放内核、MPRIS、Omarchy 主题跟随与本地安装都已在本机跑通；**播放的客观证据已齐，人耳试听、云盘登录与正式发版还没做**。
 
 ![听屿 Omarchy 版曲库界面：强调色与圆角跟随 Omarchy 桌面](docs/screenshots/omarchy/readme-library.png)
 

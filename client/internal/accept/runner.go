@@ -20,7 +20,7 @@ import (
 )
 
 // Phases lists the phase names Run understands, in execution order.
-var Phases = []string{"formats", "remote", "gapless", "queue", "loops", "controls"}
+var Phases = []string{"formats", "remote", "gapless", "queue", "loops", "controls", "playback"}
 
 // Options configures a run.
 type Options struct {
@@ -72,6 +72,8 @@ func Run(opts Options) (*Report, error) {
 			runLoops(opts.Lib, opts.MediaDir, log, report)
 		case "controls":
 			runControls(opts.Lib, opts.MediaDir, log, report)
+		case "playback":
+			runPlayback(opts.Lib, opts.MediaDir, log, report)
 		}
 	}
 	report.FinishedAt = time.Now()

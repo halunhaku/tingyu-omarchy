@@ -17,6 +17,10 @@
 #                    so a seek provokes a real Range request
 #   remote/second.flac a second URL, used to prove headers are not leaked
 #   remote/nolength.aac ADTS serves with no Content-Length and no duration
+#   m1/tone.*       the M1 playback set: 10 s at 48 kHz plus one FLAC at
+#                    96 kHz so a device that resamples is visible in the
+#                    audio-out-params the M1 check reads
+#   m1/short.flac   2 s, for the end-of-playback state
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -27,8 +31,8 @@ command -v "$FFMPEG" >/dev/null || { echo "gen-m2-media: ffmpeg not found; set F
 
 run() { "$FFMPEG" -hide_banner -loglevel error -y "$@"; }
 
-mkdir -p "$OUT"/{formats,gapless,queue,remote}
-rm -f "$OUT"/formats/tone.* "$OUT"/gapless/*.flac "$OUT"/queue/*.wav "$OUT"/remote/*
+mkdir -p "$OUT"/{formats,gapless,queue,remote,m1}
+rm -f "$OUT"/formats/tone.* "$OUT"/gapless/*.flac "$OUT"/queue/*.wav "$OUT"/remote/* "$OUT"/m1/*
 
 echo "gen-m2-media: 9 formats (14 s each)"
 tone="-f lavfi -i sine=frequency=440:duration=14"
@@ -53,6 +57,16 @@ run $tone -c:a libopus -b:a 128k "$OUT/formats/tone.opus"
 run $tone -c:a pcm_s16be "$OUT/formats/tone.aiff"
 # shellcheck disable=SC2086
 run $tone -c:a alac -f ipod "$OUT/formats/tone.alac"
+
+echo "gen-m2-media: M1 playback set (10 s tones + 2 s short file)"
+m1tone="-f lavfi -i sine=frequency=440:sample_rate=48000:duration=10"
+# shellcheck disable=SC2086
+run $m1tone -c:a libmp3lame -b:a 192k "$OUT/m1/tone.mp3"
+# shellcheck disable=SC2086
+run $m1tone -ar 96000 -c:a flac "$OUT/m1/tone.flac"
+# shellcheck disable=SC2086
+run $m1tone -c:a aac -b:a 192k "$OUT/m1/tone.m4a"
+run -f lavfi -i sine=frequency=440:sample_rate=48000:duration=2 -c:a flac "$OUT/m1/short.flac"
 
 echo "gen-m2-media: gapless pair (3 s + 3 s, 48 kHz/24 bit FLAC)"
 gapless="-f lavfi -i sine=frequency=440:duration=3"

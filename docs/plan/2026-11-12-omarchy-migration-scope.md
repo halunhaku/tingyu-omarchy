@@ -11,11 +11,11 @@
 
 | 项 | 结论 |
 |---|---|
-| 技术可行性 | **已验证**：加 3 个平台文件即可编译；本机开窗、建库、加载系统 libmpv、MPRIS 就绪 |
+| 技术可行性 | **已验证**：加 3 个平台文件 + libmpv 的 SONAME 探测即可编译；本机开窗、建库、自动加载系统 libmpv、MPRIS 就绪 |
 | 代码复用率 | 界面、曲库、来源、元数据、歌词、AI 全部复用，**没有一处需要为 Linux 重写业务逻辑** |
-| 平台层缺口 | 只差「数据目录 / 关窗退出 / 在文件管理器中显示」三个文件（本轮已补），其余是分发与桌面集成 |
-| 播放内核 | 系统 `libmpv.so.2`（mpv 0.41.0-6）可加载，client API 2.5；PipeWire 输出尚未有出声证据 |
-| 主要工作量 | 不在代码，而在**桌面集成与分发**：libmpv 自动发现、媒体键/MPRIS 实测、`.desktop` 与图标、PKGBUILD、Omarchy 主题跟随 |
+| 平台层缺口 | 语义层只差「数据目录 / 关窗退出 / 显示所在文件夹」三个文件（已补），播放层另加 SONAME 探测；其余是分发与桌面集成 |
+| 播放内核 | 系统 `libmpv.so.2`（mpv 0.41.0-6）自动加载，client API 2.5；PipeWire 输出尚未有出声证据 |
+| 主要工作量 | 不在代码，而在**桌面集成与分发**：媒体键/MPRIS 实测、`.desktop` 与图标、PKGBUILD、Omarchy 主题跟随、GTK 对话框观感 |
 | 风险最高 | Wayland 下 GTK3 文件选择器与二维码登录窗口、GPU 解码、托盘/指示器、Omarchy 主题与自绘界面的观感冲突 |
 
 ---
@@ -26,32 +26,35 @@
 |---|---|---|---|
 | 1 | 工具链 | 下载 `go1.27.3.linux-amd64.tar.gz`，SHA-256 `65efbc80…9b40`，解压到 `~/.local/share/tingyu-tools/go` | `go version go1.27.3 linux/amd64` |
 | 2 | 编译 | `CGO_ENABLED=0 go build ./...` | 起初 3 处 `undefined`，补齐平台文件后通过 |
-| 3 | 测试 | `CGO_ENABLED=0 go test ./...` | 全部通过（无失败项） |
-| 4 | 启动 | `MPV_LIB=/usr/lib/libmpv.so.2 TINGYU_DATA_DIR=/tmp/tingyu-test ./build/tingyu` | 开窗 1200×760，`startup ready` 298.8 ms |
+| 3 | 测试 | `CGO_ENABLED=0 go test -short ./...` | 全部通过；默认模式（不 skip 性能闸门）见 §4 |
+| 4 | 启动 | `TINGYU_DATA_DIR=/tmp/tingyu-test ./build/tingyu`（**不设** `MPV_LIB`） | 开窗 1200×760，`startup ready` 191.2 ms |
 | 5 | 曲库 | 同上 | `library: created … (schema version 2)`，0 曲目 |
-| 6 | 播放内核 | 同上 | `playback: libmpv libmpv.so.2 client API 2.5` |
+| 6 | 播放内核 | 同上 | `playback: libmpv libmpv.so.2 client API 2.5`（按 SONAME 自动探测） |
 | 7 | 媒体会话 | 同上 | `session: mygo.NowPlaying ready`（MPRIS，未接播放） |
-| 8 | 渲染 | `grim -g "65,42 1152x1296"` | 首次启动界面正常，中文、图标、1.6 缩放均正确（见 `docs/screenshots/omarchy/w0-onboarding.png`） |
-| 9 | 关窗退出 | `pkill -x tingyu-linux` 前的进程行为 | 关窗即退出（本轮实现的口径，未在 GUI 里点关闭按钮复验） |
+| 8 | 渲染 | `grim -g "65,42 1152x1296"` | 首次启动界面正常，中文、图标、1.6 缩放输出正确（截图为该窗口的局部区域，见 `docs/screenshots/omarchy/w0-onboarding.png`） |
+| 9 | 关窗退出 | `hyprctl dispatch 'hl.dsp.window.close()'` | 进程退出，日志 `session: now playing cleared` / `playback: engine closed` / `app: quit complete` |
 | 10 | 运行库 | `ldconfig -p` | gtk3 1:3.24.52、webkit2gtk-4.1 2.54.1、libsecret 0.21.8、mpv 1:0.41.0 均在系统里 |
+| 11 | 显示所在文件夹 | `dbus-send --print-reply …FileManager1.ShowItems`（文件名含逗号与中文） | 返回 `method return`，Nautilus 被激活；服务不存在时退出码 1，可回退 `xdg-open` |
+| 12 | 交叉编译 | `GOOS=windows`、`GOOS=darwin` 各跑 `go build ./...` | 均通过 |
 
-启动日志存档：`docs/screenshots/omarchy/w0-startup.log`。
+启动日志存档：`docs/screenshots/omarchy/w0-startup.log`（该次启动仍用了 `MPV_LIB`，自动探测路径的日志见 §1 #4 之后的复跑）。
 
-本轮补的三个平台文件：
+本轮补的平台文件：
 
 | 文件 | 内容 | 依据 |
 |---|---|---|
-| `client/internal/library/datadir_linux.go` | `$XDG_DATA_HOME/com.halunhaku.tingyu`（未设则 `~/.local/share/…`） | XDG 基础目录规范；与 macOS/Windows 版同级 |
+| `client/internal/library/datadir_linux.go` | `$XDG_DATA_HOME/com.halunhaku.tingyu`（未设或非绝对路径则 `~/.local/share/…`） | XDG 基础目录规范；与 macOS/Windows 版同级 |
 | `client/internal/app/closequit_linux.go` | 关最后一个窗口即退出 | 与 Windows 口径一致；Linux 上窗口就是应用 |
-| `client/internal/app/reveal_linux.go` | `org.freedesktop.FileManager1.ShowItems`，失败回退 `xdg-open` | freedesktop 标准接口，Dolphin/Nautilus/Nemo/Thunar 均实现 |
+| `client/internal/app/reveal_linux.go` | `org.freedesktop.FileManager1.ShowItems`（`--print-reply` 判成败），失败回退 `xdg-open` | freedesktop 标准接口；Nautilus/Dolphin 实现，Thunar 不实现，故保留回退 |
+| `client/internal/mpv/libpath_linux.go` + `libpath_other.go` | Linux 按 `libmpv.so.2` → `.1` → `.0` 依次 dlopen 探测；其他平台不受影响 | 发行版的 SONAME 只在 client ABI 破裂时变化；搜索路径交给动态加载器 |
 
-工具脚本：`client/scripts/linux-setup.sh`（装 Go、校验 SHA-256、检查运行库）、`client/scripts/linux-build.sh`（`CGO_ENABLED=0` 构建到 `client/build/tingyu`）。
+工具脚本：`client/scripts/linux-setup.sh`（装 Go、校验 SHA-256、检查运行库与 `dbus-send`/`xdg-open`）、`client/scripts/linux-build.sh`（`CGO_ENABLED=0` 构建到 `client/build/tingyu`，可 `--tools`）。
 
 ---
 
 ## 2. 还能复用什么
 
-`client/` 的平台差异早已用独立文件隔离，Linux 只落在三处（已补齐）与 `internal/mpv/library_unix.go`（macOS/Linux 共用 dlopen 路径）。以下全部与平台无关，直接沿用：
+`client/` 的平台差异早已用独立文件隔离，Linux 只落在上面列出的几个文件与 `internal/mpv/library_unix.go`（macOS/Linux 共用 dlopen 路径）、`internal/mpv/ao_other.go`（mpv 自己选 PipeWire/Pulse/ALSA）。以下全部与平台无关，直接沿用：
 
 - 曲库：SQLite schema v2、扫描、分组、搜索、收藏、歌单。
 - 来源：本地文件夹、WebDAV、夸克网盘；凭据走 `mygo.Secrets`，Linux 上是 libsecret（Secret Service）。
@@ -69,12 +72,13 @@
 
 ### M0 构建闸门（本轮已完成）
 
-- 验收：`./scripts/linux-setup.sh && ./scripts/linux-build.sh` 在干净机器上出 `build/tingyu`；`go test ./...` 全绿。
+- 验收：`./scripts/linux-setup.sh && ./scripts/linux-build.sh` 在干净机器上出 `build/tingyu`；`go test -short ./...` 全绿。
 - 状态：本机通过；干净机器未验证。
 
 ### M1 播放内核与出声
 
-- libmpv 自动发现：无 `MPV_LIB` 时按 `libmpv.so.2` / `libmpv.so.1` 顺序 dlopen，错误信息里写清尝试过的路径。
+- ~~libmpv 自动发现~~（已实现并本机验证）：无 `MPV_LIB` 时按 `libmpv.so.2` / `.1` / `.0` 依次探测，失败时列出尝试过的 SONAME 并提示安装 mpv。剩余：在干净机复验一次，并把这条写进 M0 的验收命令。
+- 播放失败时不再回落到整首静音：确认 `mpv.Load` 的每次失败都有可见的状态栏提示。
 - 音频输出：mpv 默认走 PipeWire；记录 `AO: [pipewire]`、采样率、underrun，并留一次人耳试听记录。
 - 硬件解码：确认 `hwdec=auto-safe` 在本机可用（VA-API），不可用时明确降级而不是黑屏。
 - gapless、seek、音量、播放到结尾的状态回报。
@@ -85,12 +89,15 @@
 - MPRIS 实测：`playerctl -l` 出现听屿，播放/暂停/上一首/下一首/进度同步；锁屏与媒体键可用。
 - 关窗后进程退出、引擎释放、库文件可重命名（无残留锁）。
 - 通知与封面（`mygo.Notification`）；托盘/指示器是否保留待定（Hyprland 下走 Waybar 指示器还是 appindicator）。
-- 「在文件管理器中显示」实测 Dolphin。
+- 「显示所在文件夹」在 Nautilus（本机 `FileManager1` 提供者）上实测通过；Dolphin/Thunar 未测，Thunar 不走 `FileManager1`，靠 `xdg-open` 回退。
 - 验收：用键盘媒体键控制，`playerctl status` 与界面一致。
 
 ### M3 输入与对话框
 
-- 本地目录选择走 GTK 文件选择器；确认 Wayland 下可用，必要时改走 `xdg-desktop-portal`。
+- 本地目录选择（**已实测，结论：必须走 portal**）。`mygo.Dialog` 在 Linux 上只用 `GtkFileChooserNative`，未开 portal 时回退成进程内 GTK 对话框。实测（见 `docs/screenshots/omarchy/`）：
+  - 进程内 GTK 对话框：窗口被摆到 x=976、宽 1668，**右边缘超出屏幕**，确认按钮落在屏幕外，实际只能取消。`m3-chooser-inprocess.png`
+  - `GTK_USE_PORTAL=1`：由 `xdg-desktop-portal-gtk` 弹出 875×600，取消/选择都在，位置正常。`m3-chooser-portal.png`
+  - 待做：把 `GTK_USE_PORTAL=1` 写进 `.desktop` 的 `Exec`（M5 一起做），或由 `main.go` 在 GTK 初始化前 `setenv`；同时保留 `Parent: a.win`（已补），portal 下用于 `parent_window` 关联。
 - 拖入目录/文件是否支持，行为与 Windows 版对齐。
 - 夸克二维码登录窗口：弹窗与二维码在 Wayland 下的尺寸、缩放、扫码流程。
 - 验证码、WebDAV 凭据输入。
@@ -116,14 +123,29 @@
 - 功能对照表：逐项对照 Windows 版「已实现」清单打勾，未通过项写原因。
 - 性能：冷启动、曲库 5000 首滚动、内存占用，与 Windows 记录同口径对比。
 - 回归：改了共享代码要同时跑通 `GOOS=windows` 与 `GOOS=darwin` 构建，避免为 Linux 破坏上游。
+- CI：加 `.github/workflows/linux.yml`（ubuntu-latest，Go 按 `client/go.mod`，`go build` / `go vet` / `go test -short`，外加 windows/darwin 交叉编译），让 Linux 文件不再只靠本机验证。
 
 ---
 
-## 4. 风险与未知
+## 4. 测试与门槛
+
+| 项 | 现状 |
+|---|---|
+| `go test ./...` | 除性能闸门外全绿 |
+| 性能闸门 `TestLibraryScrollP95At10000Rows` | 本机连续三次 p95 = 17.6 / 通过 / 16.71 ms，限值 16.7 ms；属临界噪声，未改阈值，加了 `-short` 跳过，默认模式仍执行 |
+| `go test -short ./...` | 全绿，作为日常与 CI 口径 |
+| 交叉编译 | `GOOS=windows`、`GOOS=darwin` 各 `go build ./...` 通过 |
+| `go vet ./...` | 通过 |
+| `gofmt -l` | `cmd/w0accept/main.go` 沿用上游格式，未动 |
+| CI | 仓库只有 `macos.yml`（只编 darwin），Linux 文件在本机之外没有任何自动验证——见 M6 |
+
+---
+
+## 5. 风险与未知
 
 | 风险 | 影响 | 现在能做什么 |
 |---|---|---|
-| GTK3 文件选择器在 Wayland 下的行为 | 选不了目录 = 无法入库 | M3 第一件事就验；退路是 portal |
+| GTK3 文件选择器在 Wayland 下的行为 | **已复现**：进程内对话框被摆到屏幕外，确认按钮不可见 | 设 `GTK_USE_PORTAL=1` 走 portal（已实测正常），写进 `.desktop` |
 | 二维码登录窗口（自绘弹窗）在 Wayland 的定位 | 扫码流程可能错位 | M3 实测；必要时改为页内展示 |
 | 自绘界面的观感与 Omarchy 主题 | 像「外来的应用」 | M4 接管 accent 与圆角，先做颜色，再谈排版 |
 | GPU 解码与 DMA-BUF | 高码率视频封面/大封面抖动 | M1 记录 `hwdec` 实测 |
@@ -133,7 +155,7 @@
 
 ---
 
-## 5. 明确不做
+## 6. 明确不做
 
 - 不做 Flatpak / AppImage：Omarchy 用 pacman，先做 PKGBUILD。
 - 不做 X11 专属路径的适配（Omarchy 是 Wayland；XWayland 下能起窗口即可，不承诺）。

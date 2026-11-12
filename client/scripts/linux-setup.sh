@@ -11,6 +11,10 @@ tools_dir="${TINGYU_TOOLS:-${XDG_DATA_HOME:-$HOME/.local/share}/tingyu-tools}"
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--tools)
+		if [ $# -lt 2 ]; then
+			echo "用法：$0 [--tools 目录]" >&2
+			exit 2
+		fi
 		tools_dir="$2"
 		shift 2
 		;;
@@ -30,9 +34,10 @@ x86_64) go_arch=amd64 ;;
 esac
 
 go_root="$tools_dir/go"
-if [ -x "$go_root/bin/go" ] && "$go_root/bin/go" version | grep -q "go$GO_VERSION "; then
-	echo "Go $GO_VERSION 已就绪：$go_root"
-else
+go_version="$([ -x "$go_root/bin/go" ] && "$go_root/bin/go" version 2>/dev/null || true)"
+case "$go_version" in
+*"go$GO_VERSION "*) echo "Go $GO_VERSION 已就绪：$go_root" ;;
+*)
 	mkdir -p "$tools_dir"
 	tarball="$tools_dir/go$GO_VERSION.linux-$go_arch.tar.gz"
 	if [ ! -f "$tarball" ]; then
@@ -41,14 +46,18 @@ else
 	fi
 	actual="$(sha256sum "$tarball" | cut -d' ' -f1)"
 	if [ "$actual" != "$GO_SHA256" ]; then
-		echo "校验失败：$tarball 的 SHA-256 是 $actual，期望 $GO_SHA256。" >&2
+		# Drop the bad archive, or the next run skips the download and
+		# fails the same check again.
+		rm -f "$tarball"
+		echo "校验失败：下载的 SHA-256 是 $actual，期望 $GO_SHA256。已删除，请重新运行本脚本。" >&2
 		exit 1
 	fi
 	rm -rf "$go_root"
 	tar -xzf "$tarball" -C "$tools_dir"
 	rm -f "$tarball"
 	echo "Go $GO_VERSION 已解压到：$go_root"
-fi
+	;;
+esac
 
 # The client asks the loader for these at run time, so a missing one only
 # shows up when the window is about to open. Checking here keeps that out of
@@ -69,5 +78,15 @@ if [ ${#missing[@]} -gt 0 ]; then
 	exit 1
 fi
 echo "运行库齐全：gtk3、webkit2gtk-4.1、libsecret、libmpv"
+
+# Showing a file in the file manager shells out to these two; a missing one
+# turns into "nothing happens" rather than an error in the window.
+for tool in dbus-send xdg-open; do
+	if ! command -v "$tool" >/dev/null 2>&1; then
+		echo "缺少命令：$tool（Arch：sudo pacman -S dbus xdg-utils）" >&2
+		exit 1
+	fi
+done
+echo "命令齐全：dbus-send、xdg-open"
 echo
 echo "下一步：./scripts/linux-build.sh"

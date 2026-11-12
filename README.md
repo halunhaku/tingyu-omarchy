@@ -8,11 +8,12 @@
 
 ## 已跑通
 
-- Go 1.27.3、`CGO_ENABLED=0` 构建通过，`go test ./...` 全绿。
-- Hyprland/Wayland 下开窗，启动到就绪约 300 ms，窗口按 1.6 分数缩放绘制正常。
-- 数据目录按 XDG 落在 `~/.local/share/com.halunhaku.tingyu`，可用 `TINGYU_DATA_DIR` 覆盖。
-- 系统 libmpv 0.41 加载成功（client API 2.5），MPRIS 会话（`mygo.NowPlaying`）就绪。
-- 「在文件管理器中显示」走 freedesktop `FileManager1`，失败回退 `xdg-open`。
+- Go 1.27.3、`CGO_ENABLED=0` 构建通过；`go test -short ./...` 全绿。
+- Hyprland/Wayland 下开窗，从 `main` 到就绪约 190–300 ms，1.6 分数缩放输出下界面渲染正常。
+- 数据目录按 XDG 落在 `~/.local/share/com.halunhaku.tingyu`（相对的 `XDG_DATA_HOME` 按规范忽略），可用 `TINGYU_DATA_DIR` 覆盖。
+- 系统 libmpv 0.41 自动加载（`libmpv.so.2` → `.1` → `.0`，client API 2.5），不需要设 `MPV_LIB`。
+- MPRIS 会话（`mygo.NowPlaying`）就绪；关窗后进程退出、引擎释放、MPRIS 清空已复验。
+- 「显示所在文件夹」走 freedesktop `FileManager1`，失败回退 `xdg-open`。
 
 ## 从源码构建
 
@@ -28,17 +29,17 @@ cd tingyu-omarchy/client
 # 构建 build/tingyu
 ./scripts/linux-build.sh
 
-# 启动（libmpv 目前需要显式指定）
-MPV_LIB=/usr/lib/libmpv.so.2 ./build/tingyu
+# 启动（会自动使用系统 libmpv）
+./build/tingyu
 ```
 
 运行库由 Omarchy 自带：`gtk3`、`webkit2gtk-4.1`、`libsecret`、`mpv`。
 
 ## 已知限制
 
-- **libmpv 路径**：Linux 上还没有自动查找 `libmpv.so.2`，暂时要用 `MPV_LIB` 指定。
 - **窗口标识**：Wayland 的 app id 取二进制名（`tingyu`），`.desktop` 与图标尚未落地。
 - **未验收**：真实出声、硬件解码、媒体键、MPRIS 控件、拖入目录、云盘登录、二维码登录。
+- **性能门槛**：`internal/shell` 的 10000 行滚动 p95 闸门（16.7 ms）在本机实测 16.7–17.6 ms，临界失败；`go test -short` 跳过它，默认 `go test ./...` 仍然执行。
 - **分发**：没有 PKGBUILD、`.desktop`、图标，也没有加入 Omarchy 的软件包源。
 
 ## 项目文档

@@ -2,7 +2,7 @@
 
 基于 [halunhaku/tingyu](https://github.com/halunhaku/tingyu) 的独立 Omarchy（Linux）版开发仓库。沿用 Go、MyGo 和 libmpv 的客户端，界面与 Windows 版同源。Windows 版说明见 [README-windows.md](README-windows.md)，macOS 原版见 [README-macos.md](README-macos.md)。
 
-当前为开发预览版：构建、窗口、曲库、播放内核、MPRIS、Omarchy 主题跟随与本地安装都已在本机跑通；**播放的客观证据已齐，人耳试听、云盘登录与正式发版还没做**。
+当前为开发预览版：构建、窗口、曲库、播放、MPRIS、Omarchy 主题跟随、夸克网盘登录与本地安装都已跑通（出声与夸克登录由作者本人实测确认）；**正式发版、WebDAV 与真键盘媒体键还没验收**。
 
 ![听屿 Omarchy 版曲库界面：强调色与圆角跟随 Omarchy 桌面](docs/screenshots/omarchy/readme-library.png)
 
@@ -14,7 +14,9 @@
 | 窗口 | Hyprland/Wayland 下开窗，从 `main` 到就绪约 190–300 ms，1.6 分数缩放下渲染正常 |
 | 曲库与数据目录 | XDG 路径 `~/.local/share/com.halunhaku.tingyu`（相对的 `XDG_DATA_HOME` 按规范忽略），`TINGYU_DATA_DIR` 可覆盖 |
 | 播放内核 | 系统 libmpv 0.41 按 `libmpv.so.2` → `.1` → `.0` 自动加载，client API 2.5，不需要 `MPV_LIB` |
-| 播放验收 | 内置 harness 在 Linux 上 24/25：9 种格式 + seek、远端鉴权/Range/无长度流、gapless、loop、倍速、音量全过；`queue-200` 未过（见下） |
+| 播放验收 | 内置 harness 在 Linux 上 **27/27**：9 种格式 + seek、远端鉴权/Range/无长度流、gapless、loop、倍速、音量、200 首连播；`AO: [pipewire]` 9/9，采样率跟随源，underrun 0 |
+| 出声 | 作者本人试听确认（2026-11-12）：有声音，切歌、进度、结尾都正常 |
+| 云盘 | 夸克网盘扫码登录由作者本人验证通过（2026-11-12）；WebDAV 尚未在 Linux 上验 |
 | MPRIS | `playerctl` 可见可控：title/artist/album/`mpris:length`/封面都对，`play-pause`、`next`、`previous`、`position` 生效；播完为 `Stopped`，换曲位置归零 |
 | 桌面观感 | 跟随 Omarchy 的 `accent` 与 Hyprland 的 `decoration:rounding`，主题切换 2 秒内生效；设置页有「跟随桌面主题」开关 |
 | 文件对话框 | 走 `xdg-desktop-portal`（进程内 GTK 选择器在 Hyprland 下会把确认按钮摆到屏幕外） |
@@ -47,11 +49,9 @@ cd tingyu-omarchy/client
 ## 已知限制
 
 - **窗口标识**：Wayland 的 app id 取二进制名（`tingyu`），`.desktop` 里用 `StartupWMClass=tingyu` 对齐。
-- **`queue-200`**：harness 观测到 201 次加载而队列长度是 200，原因在查（详见计划文档 §3.1）。
-- **出声**：AO 后端、采样率、underrun、结尾事件尚无原始证据，只有内核位置推进；人耳试听也还没做。
 - **真键盘媒体键**：只用 `playerctl` 模拟过，Omarchy 的真实链路（Hyprland → omarchy-shell → MPRIS）未按过。
-- **云盘**：WebDAV 与夸克登录、二维码流程未在 Linux 上验。
-- **未验收**：真实出声、硬件解码、媒体键、MPRIS 控件、拖入目录、云盘登录、二维码登录。
+- **WebDAV**：尚未在 Linux 上验；拖入目录也未验。
+- **硬件解码**：不参与播放路径（`vo=null`、`audio-display=no`），真实视频/大封面 GPU 路径未验。
 - **性能门槛**：`internal/shell` 的 10000 行滚动 p95 闸门（16.7 ms）在本机实测 16.7–17.6 ms，临界失败；`go test -short` 跳过它，默认 `go test ./...` 仍然执行。
 - **分发**：已有 PKGBUILD、`.desktop` 与图标，尚未发布 tag 与 GitHub Release，也没有加入 Omarchy 的软件包源。
 

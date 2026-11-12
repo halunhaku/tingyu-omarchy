@@ -145,8 +145,8 @@ CGO_ENABLED=0 go build -o build/accept ./cmd/accept
 
 | 结果 | 覆盖 |
 |---|---|
-| 24/25 通过 | 9 种格式各播 10 s + seek、远端 Range/鉴权/403 过期/断网/无 Content-Length、gapless 波形比对、queue-replace、loop off/all/one、倍速、音量、本地与远端 buffered |
-| **失败：`queue-200`** | 连播 200 首：`completed=true`、末位 index 199/199 正常，但观测到 **201** 次加载，计数与队列长度不符 |
+| **25/25 通过**（修复装置后，连跑 2 次确定） | 9 种格式各播 10 s + seek、远端 Range/鉴权/403 过期/断网/无 Content-Length、gapless 波形比对、queue-replace、loop off/all/one、倍速、音量、本地与远端 buffered、连播 200 首 |
+| 首轮 24/25 的原因 | `queue-200` 与 loop 两项失败全部是**验收装置的假设**错了，不是播放链路：mpv 先报 loadfile 给的相对路径、流打开后报绝对路径（一首被记两次）；控制器默认 `RepeatAll`（沿用 Flutter 默认），到末尾会回绕；0.2 s 的测试音让"重播"只有 ~200 ms 可观测窗口，快照通道满了就丢。修完装置即 25/25，`internal/mpv`、`internal/player` 一行未改 |
 
 注意事项：
 - `scripts/run-m2-accept.sh` 是 macOS 专用（`install_name_tool`、`codesign`、`.app` bundle），Linux 上直接跑 `build/accept` 即可，libmpv 由 SONAME 自动发现。

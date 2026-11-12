@@ -46,6 +46,11 @@ func runQueue(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 		return
 	}
 	check.Data["rate"] = rate
+	// The controller starts in repeat-all (the Flutter client's default), which
+	// wraps the playlist the moment the last entry ends: the run then never
+	// reaches a stable Completed state, and every wrap adds an observation.
+	// This check measures completion, so it has to own the mode.
+	session.control.SetRepeat(player.RepeatOff)
 
 	var (
 		mu       sync.Mutex
@@ -66,13 +71,14 @@ func runQueue(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 				if !ok {
 					return
 				}
-				if snapshot.Path == "" {
+				path := normalizePath(snapshot.Path)
+				if path == "" {
 					continue
 				}
 				mu.Lock()
-				if snapshot.Path != lastPath {
-					lastPath = snapshot.Path
-					seen = append(seen, observation{Index: snapshot.Index, Path: snapshot.Path})
+				if path != lastPath {
+					lastPath = path
+					seen = append(seen, observation{Index: snapshot.Index, Path: path})
 				}
 				mu.Unlock()
 			}
@@ -117,8 +123,10 @@ func runQueue(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	mu.Unlock()
 
 	// Order: the k-th observed path must be the k-th queue entry, and its
-	// index must be k. Any drift (a skipped prefetch, an out-of-order append,
-	// an index that does not follow the path) shows up here.
+	// index must be k (or k-1: mpv publishes "path" at start-file and
+	// "playlist-pos" a moment later, so one snapshot can carry the new path with
+	// the previous index). Any drift (a skipped prefetch, an out-of-order
+	// append, a wrap at the end) shows up here.
 	orderMismatch := ""
 	if len(observed) != len(tracks) {
 		orderMismatch = fmt.Sprintf("观察到的曲目数 %d != 队列长度 %d", len(observed), len(tracks))
@@ -131,11 +139,11 @@ func runQueue(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 			orderMismatch = fmt.Sprintf("多出第 %d 个观察", index+1)
 			break
 		}
-		if observation.Path != tracks[index].FilePath {
+		if observation.Path != normalizePath(tracks[index].FilePath) {
 			orderMismatch = fmt.Sprintf("第 %d 首应为 %s，实际 %s", index+1, filepath.Base(tracks[index].FilePath), filepath.Base(observation.Path))
 			break
 		}
-		if observation.Index != index {
+		if observation.Index != index && observation.Index != index-1 {
 			orderMismatch = fmt.Sprintf("第 %d 首的当前下标为 %d", index+1, observation.Index)
 			break
 		}
@@ -153,6 +161,23 @@ func runQueue(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	check.Data["failure"] = failureText(update.Failure)
 	if orderMismatch != "" {
 		check.Data["orderMismatch"] = orderMismatch
+		// Where the sequence stops following the queue is the only way to tell
+		// an extra observation from a skipped one after the fact.
+		for index, observation := range observed {
+			wantIndex := -1
+			want := "-"
+			if index < len(tracks) {
+				wantIndex = index
+				want = filepath.Base(tracks[index].FilePath)
+			}
+			pathMatches := wantIndex >= 0 && observation.Path == normalizePath(tracks[wantIndex].FilePath)
+			if observation.Index != wantIndex || !pathMatches {
+				check.Data["firstDrift"] = fmt.Sprintf("第 %d 个观察：index=%d %s，期望 index=%d %s",
+					index+1, observation.Index, filepath.Base(observation.Path), wantIndex, want)
+				log("queue: first drift %s", check.Data["firstDrift"])
+				break
+			}
+		}
 	}
 	check.Pass = completed && orderMismatch == "" && !update.Snapshot.Playing &&
 		update.Index == queueLength-1 && update.Failure == nil && depthMax >= 2
@@ -247,6 +272,14 @@ func runLoops(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	}
 
 	// --- off: stop at the end, play again from the top -----------------
+	// The last entry is a 3 s track, not one of the 0.2 s queue chunks: a tiny
+	// track makes "playing again" observable for ~200 ms only, and the burst of
+	// state changes at the end can outrun the controller's snapshot channel
+	// (drop-on-full), which turns a working replay into an apparent failure.
+	offTracks := tracks[:2]
+	if path, missing := requireMedia(mediaDir, filepath.Join("gapless", "a.flac")); missing == "" {
+		offTracks = []library.Track{tracks[0], localTrack(path)}
+	}
 	session, err := newSession(lib, nil, "", nil, log)
 	if err != nil {
 		skip(report, "loop-off", "不循环：播完停在末尾并可重播", "引擎创建失败："+err.Error())
@@ -254,7 +287,7 @@ func runLoops(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	}
 	off := Check{ID: "loop-off", Name: "不循环：播完停在末尾并可重播", Data: map[string]any{}}
 	session.control.SetRepeat(player.RepeatOff)
-	if err := session.play(tracks[:2]); err != nil {
+	if err := session.play(offTracks); err != nil {
 		off.Note = "起播失败：" + err.Error()
 		report.Add(off)
 		session.close()
@@ -273,15 +306,20 @@ func runLoops(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	filesBefore := session.engine.FilesLoaded()
 	_ = session.control.Play()
 	replayed := waitUntil(8*time.Second, func() bool { return session.snapshot().Snapshot.Playing })
+	// Report where the replay got to as well: "playing again" is one fact, a
+	// position that moved off zero is the second.
+	advanced := waitUntil(8*time.Second, func() bool { return session.snapshot().Snapshot.Position > 300*time.Millisecond })
 	afterReplay := session.snapshot()
 	off.Data["replayed"] = replayed
+	off.Data["positionAdvanced"] = advanced
 	off.Data["filesReloaded"] = session.engine.FilesLoaded() - filesBefore
 	off.Data["positionAfterReplay"] = round2(afterReplay.Snapshot.Position.Seconds())
-	off.Pass = completed && !atEnd.Snapshot.Playing && replayed && afterReplay.Failure == nil
+	off.Data["durationAfterReplay"] = round2(afterReplay.Snapshot.Duration.Seconds())
+	off.Pass = completed && !atEnd.Snapshot.Playing && replayed && advanced && afterReplay.Failure == nil
 	if !off.Pass {
-		off.Note = fmt.Sprintf("completed=%v playingAtEnd=%v replayed=%v", completed, atEnd.Snapshot.Playing, replayed)
+		off.Note = fmt.Sprintf("completed=%v playingAtEnd=%v replayed=%v advanced=%v", completed, atEnd.Snapshot.Playing, replayed, advanced)
 	}
-	log("loop off: completed=%v replayed=%v", completed, replayed)
+	log("loop off: completed=%v replayed=%v advanced=%v", completed, replayed, advanced)
 	report.Add(off)
 	session.close()
 
@@ -387,7 +425,7 @@ func runLoops(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 		session.close()
 		return
 	}
-	firstPath := session.snapshot().Snapshot.Path
+	firstPath := normalizePath(session.snapshot().Snapshot.Path)
 	filesLoadedBefore := session.engine.FilesLoaded()
 	// Observe more than one full pass of the track: the position must wrap,
 	// the path must stay, and no completion may appear.
@@ -399,7 +437,7 @@ func runLoops(lib *mpv.Lib, mediaDir string, log func(string, ...any), report *R
 	previous := time.Duration(0)
 	for time.Now().Before(deadline) {
 		update := session.snapshot()
-		if update.Snapshot.Path != firstPath {
+		if changed := normalizePath(update.Snapshot.Path); changed != "" && changed != firstPath {
 			pathChanged = true
 		}
 		if update.Snapshot.Processing == mpv.Completed {

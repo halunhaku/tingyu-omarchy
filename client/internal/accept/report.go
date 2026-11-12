@@ -102,6 +102,21 @@ func (r *Report) Summary() string {
 }
 
 // hostInfo collects the host fields.
-func hostInfo(mpvPath, api, audio string) Host {
-	return Host{OS: runtime.GOOS, Arch: runtime.GOARCH, GoVersion: runtime.Version(), MPVPath: mpvPath, MPVAPI: api, AudioValue: audio}
+func hostInfo(mpvPath, api string) Host {
+	return Host{OS: runtime.GOOS, Arch: runtime.GOARCH, GoVersion: runtime.Version(), MPVPath: mpvPath, MPVAPI: api, AudioValue: audioBackendName()}
+}
+
+// audioBackendName is the backend this build hands playback to. The measured
+// backend is in each check's audioOutput line; this field only says which one
+// the platform's build is built around, so a Linux report does not claim
+// coreaudio.
+func audioBackendName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "coreaudio"
+	case "windows":
+		return "wasapi"
+	default:
+		return "mpv-default (pipewire/pulse/alsa on Linux)"
+	}
 }

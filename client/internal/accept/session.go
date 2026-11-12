@@ -2,6 +2,7 @@ package accept
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -85,6 +86,21 @@ func resolver(headers map[string]map[string]string) player.Resolver {
 // localTrack makes a track for a file on disk.
 func localTrack(path string) library.Track {
 	return library.Track{ID: path, Title: path, FilePath: path}
+}
+
+// normalizePath puts mpv's "path" into one canonical form. mpv reports the URI
+// it was handed first and the resolved filename once the stream is open, so a
+// relative media path shows up twice for the same track (Linux: media given as
+// build/m2-media/…, then /home/…/build/m2-media/…). Comparing raw values counts
+// one track twice and turns a single file into a "path changed" event.
+func normalizePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
 }
 
 // waitUntil polls cond until it is true or the timeout passes. Polling is fine
